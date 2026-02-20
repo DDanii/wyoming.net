@@ -1,15 +1,15 @@
-using System.ClientModel;
+﻿using System.ClientModel;
 using System.Diagnostics.CodeAnalysis;
 using OpenAI;
 using OpenAI.Audio;
 using Wyoming.Net.Core;
 using Wyoming.Net.Core.Audio;
 
-public class OpenAIBackend : ITextToSpeechProvider
+public sealed class OpenAIBackend : ITextToSpeechProvider
 {
-    private readonly string? apiKey;
+    private readonly string apiKey;
 
-    public OpenAIBackend(string? apiKey)
+    public OpenAIBackend(string apiKey)
     {
         this.apiKey = apiKey;
     }
@@ -43,7 +43,6 @@ public class OpenAIBackend : ITextToSpeechProvider
 
     public Task InitializeAsync(string model, string voice)
     {
-        Asserts.IsNotNullOrEmpty(apiKey, "OpenAI API key is required");
         client = new AudioClient("gpt-4o-mini-tts", new ApiKeyCredential(apiKey!));
         return Task.CompletedTask;
     }

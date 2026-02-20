@@ -101,7 +101,7 @@ UserSettings.DefaultVoice = argsResult.GetRequiredValue(defaultVoiceOption);
 var server = new AsyncTcpServer(
     argsResult.GetRequiredValue(hostOption),
     argsResult.GetRequiredValue(portOption),
-    (client, server, loggerFactory) => new SynthesizeEventHandler(client, server, loggerFactory, () => new OpenAIBackend(argsResult.GetValueForOption(openAiKeyOption)), info),
+    (client, server, loggerFactory) => new SynthesizeEventHandler(client, server, loggerFactory, () => new OpenAIBackend(argsResult.GetRequiredValue(openAiKeyOption)), info),
     factory);
     
 await server.RunAsync();
