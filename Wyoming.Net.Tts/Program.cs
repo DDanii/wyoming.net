@@ -1,4 +1,4 @@
-﻿using System.CommandLine;
+using System.CommandLine;
 using Microsoft.Extensions.Logging;
 using Wyoming.Net.Core.Events;
 using Wyoming.Net.Core.Server;
@@ -41,13 +41,19 @@ var defaultVoiceOption = new Option<string>("--defaultVoice")
     DefaultValueFactory = _ => "pf_dora",
 };
 
+var openAiKeyOption = new Option<string>("--openaiKey")
+{
+    Description = "OpenAI API Key"
+};
+
 var rootCommand = new RootCommand()
 {
     hostOption,
     portOption,
     modelOption,
     useCudaOption,
-    defaultVoiceOption
+    defaultVoiceOption,
+    openAiKeyOption
 };
 
 var argsResult = rootCommand.Parse(Environment.CommandLine);
@@ -95,7 +101,7 @@ UserSettings.DefaultVoice = argsResult.GetRequiredValue(defaultVoiceOption);
 var server = new AsyncTcpServer(
     argsResult.GetRequiredValue(hostOption),
     argsResult.GetRequiredValue(portOption),
-    (client, server, loggerFactory) => new SynthesizeEventHandler(client, server, loggerFactory, () => new KokoroBackend(useCuda: UserSettings.UseCuda), info),
+    (client, server, loggerFactory) => new SynthesizeEventHandler(client, server, loggerFactory, () => new OpenAIBackend(argsResult.GetValueForOption(openAiKeyOption)), info),
     factory);
     
 await server.RunAsync();

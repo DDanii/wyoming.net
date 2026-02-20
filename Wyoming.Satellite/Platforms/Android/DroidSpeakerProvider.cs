@@ -1,4 +1,5 @@
-﻿using Android.Media;
+﻿using System.Threading.Channels;
+using Android.Media;
 using Wyoming.Net.Core;
 using Wyoming.Net.Core.Audio;
 using Encoding =  Android.Media.Encoding;
@@ -8,17 +9,23 @@ namespace Wyoming.Net.Satellite;
 public sealed class DroidSpeakerProvider : ISpeakerProvider
 {
     private AudioTrack? track;
-
+    private Channel<byte[]>? playbackChannel;
+    
     public int? Rate { get; private set; }
 
     public int? Width { get; private set; }
 
     public int? Channels { get; private set; }
 
-    public Task PlayAsync(byte[] samples, long? timestamp)
+    public async Task PlayAsync(byte[] samples, long? timestamp)
     {
         Asserts.IsNotNull(track, "StartAsync should have been called at this point");
-        return track!.WriteAsync(samples, 0, samples.Length, WriteMode.Blocking) ?? Task.CompletedTask;
+        Asserts.IsNotNull(playbackChannel, "StartAsync should have been called at this point");
+
+        if (await playbackChannel!.Writer.WaitToWriteAsync().ConfigureAwait(false))
+        {
+            await playbackChannel.Writer.WriteAsync(samples).ConfigureAwait(false);
+        }
     }
 
     public ValueTask StartAsync(int sampleRate, int width, int channels)
@@ -56,11 +63,26 @@ public sealed class DroidSpeakerProvider : ISpeakerProvider
         Rate = sampleRate;
         Width = width;
         Channels = channels;
+        
+        playbackChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions()
+        {
+            SingleReader = true,
+            SingleWriter = true
+        });
 
+        _ = Task.Factory.StartNew(PlaybackLoop);
         return ValueTask.CompletedTask;
     }
 
     public ValueTask StopAsync()
+    {
+        Asserts.IsNotNull(playbackChannel, "StartAsync should have been called at this point");
+        playbackChannel!.Writer.Complete();
+        
+        return ValueTask.CompletedTask;
+    }
+
+    private void Reset()
     {
         track?.Stop();
         track?.Dispose();
@@ -69,10 +91,21 @@ public sealed class DroidSpeakerProvider : ISpeakerProvider
         Rate = null;
         Width = null;
         Channels = null;
-
-        return ValueTask.CompletedTask;
+        
+        playbackChannel = null;
     }
 
+    private async Task PlaybackLoop()
+    {
+        while (await playbackChannel!.Reader.WaitToReadAsync())
+        {
+            var samples = await playbackChannel.Reader.ReadAsync();
+            await track!.WriteAsync(samples, 0, samples.Length, WriteMode.Blocking).ConfigureAwait(false);
+        }
+        
+        Reset();
+    }
+    
     private static Encoding GetEncoding(int width)
     {
         return width switch

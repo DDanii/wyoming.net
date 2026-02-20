@@ -120,6 +120,21 @@ public sealed class AudioChunk : AudioFormat, IEventable
     }
 
     public int Milliseconds => (int)(Seconds * 1_000.0);
+    
+    public static AudioChunk FromPcm16(byte[] samples, long? timestamp, int rate, int channels)
+    {
+        AudioChunk chunk = new()
+        {
+            Audio = samples,
+            Timestamp = timestamp,
+            Rate = rate,
+            Channels = channels,
+            Width = sizeof(short)
+        };
+
+        return chunk;
+    }
+    
 
     public static AudioChunk FromFloatPcm(byte[] samplesPcmFloat, long? timestamp, int rate, int channels)
     {
@@ -138,6 +153,11 @@ public sealed class AudioChunk : AudioFormat, IEventable
         };
 
         return chunk;
+    }
+    
+    public static AudioChunk FromPcm16(ReadOnlySpan<byte> samples, long? timestamp, int rate, int channels)
+    {
+        return FromPcm16(samples.ToArray(), timestamp, rate, channels);
     }
 }
 

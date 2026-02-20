@@ -1,9 +1,6 @@
 namespace Wyoming.Net.Core.Audio;
 
-/// <summary>
-/// <param name="iteration">-1 for end of iterations</param>
-/// </summary>
-public delegate Task OnStreamAsync(Memory<float> samples, int iteration);
+public delegate Task OnStreamAsync(ReadOnlyMemory<byte> samples);
 
 public interface ITextToSpeechProvider : IAsyncDisposable
 {
