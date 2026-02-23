@@ -1,17 +1,15 @@
-﻿using Tizen.NUI;
+using System;
+using Tizen.NUI;
 using Tizen.NUI.BaseComponents;
-using NUI = Tizen.NUI;
+using Wyoming.Net.Satellite.App.Tz.Components;
 using Wyoming.Net.Satellite.App.Tz.Pages;
 using Wyoming.Net.Satellite.App.Tz.ViewModels;
-using Wyoming.Net.Satellite.App.Tz.Components;
-using System;
 
+namespace Wyoming.Net.Satellite.App.Tz;
 
-namespace Wyoming.Net.Satellite.App.Tz
+public sealed class UIApp : NUIApplication
 {
-    class Program : NUIApplication
-    {
-        protected override void OnCreate()
+    protected override void OnCreate()
         {
             base.OnCreate();
             FocusManager.Instance.FocusIndicator = null;
@@ -74,18 +72,11 @@ namespace Wyoming.Net.Satellite.App.Tz
             }
         }
 
-        public async void OnKeyEvent(object sender, NUI.Window.KeyEventArgs e)
+        public async void OnKeyEvent(object sender, Window.KeyEventArgs e)
         {
             if (e.Key.State == Key.StateType.Down && (e.Key.KeyPressedName == "XF86Back" || e.Key.KeyPressedName == "Escape"))
             {
                 Exit();
             }
         }
-
-        static void Main(string[] args)
-        {
-            var app = new Program();
-            app.Run(args);
-        }
-    }
 }

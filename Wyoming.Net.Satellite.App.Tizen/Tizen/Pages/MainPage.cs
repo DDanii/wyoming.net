@@ -2,13 +2,10 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Tizen.Applications;
+using Tizen.Applications.Messages;
 using Tizen.NUI;
 using Tizen.NUI.BaseComponents;
-using Wyoming.Net.Core;
-using Wyoming.Net.Core.Events;
-using Wyoming.Net.Core.Server;
 using Wyoming.Net.Satellite.App.Tz.Components;
-using Wyoming.Net.Satellite.App.Tz.Platform;
 using Wyoming.Net.Satellite.App.Tz.ViewModels;
 
 namespace Wyoming.Net.Satellite.App.Tz.Pages;
@@ -17,13 +14,9 @@ public class MainPage : View
 {
     private ListeningAnimationComponent listeningAnimationComponent;
 
-    private SatelliteStateViewModel stateViewModel;
+    private MessagePort _uiLocalPort = new(Constants.UiPortName, false);
 
-    private WakeWordSatellite? satellite;
-
-    private AsyncTcpServer? server;
-
-    private TizenSpeakerProvider speakerProvider;
+    private SatelliteStateViewModel stateViewModel = new();
 
     private SatelliteButton startStopButton;
 
@@ -38,8 +31,7 @@ public class MainPage : View
         uiContext = TizenSynchronizationContext.Current!;
 
         InitializeUI();
-        InitializeViewModel();
-        speakerProvider = new TizenSpeakerProvider();
+        LaunchBackgrund();
     }
 
     private void InitializeUI()
@@ -89,134 +81,90 @@ public class MainPage : View
         FocusManager.Instance.SetCurrentFocusView(startStopButton);
     }
 
-    private void InitializeViewModel()
+    private void InitializeCommunication()
     {
-        stateViewModel = new SatelliteStateViewModel();
+        _uiLocalPort.MessageReceived += (s, e) =>
+        {
+            string eventName = e.Message.GetItem<string>(Constants.Events.EventKey);
+            RunUIUpdate(() => HandleServiceEvent(eventName, e.Message));
+        };
+
+        _uiLocalPort.Listen();
+
+        SendCommandToService(Constants.Commands.GetStatusCommand);
     }
 
-    private async Task<bool> CreateServerAsync()
+    private void AppControlReplyCallback(AppControl launchRequest, AppControl replyRequest, AppControlReplyResult result)
     {
-        var settingsViewModel = SatelliteSettingsViewModel.Load();
-
-        if (!settingsViewModel.IsValid(out var message))
+        if (result >= AppControlReplyResult.Succeeded)
         {
-            TvDialog.ShowOkDialog("Ops", message!);
-            return false;
+            InitializeCommunication();
         }
-        
-        var settings = settingsViewModel.ToSatelliteSettings();
-        var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync();
-        var loggerFactory = new TizenLoggerFactory();
-
-        satellite = new WakeWordSatellite(settings, wakeModels, loggerFactory, new TizenMicProvider(), speakerProvider);
-        satellite.StateChanged += OnSatelliteStateChanged;
-        satellite.SatelliteError += OnSatelliteError;
-        satellite.WakeWordDetected += OnWakeWordDetected;
-
-        var info = new Info(new Core.Events.Satellite()
+        else
         {
-            ActiveWakeWords = new string[] { settings.Wake.Name! },
-            Attribution = new Attribution
-            {
-                Name = "Guilherme Pohlmann da Rosa",
-                Url = "https://github.com/guilherme-pohlmann/wyoming-net"
-            },
-            Description = settingsViewModel.Description,
-            Name = settingsViewModel.Name!,
-            HasVad = false,
-            Installed = true,
-            MaxActiveWakeWords = 1,
-            SupportsTrigger = true,
-            Version = "0.0.1",
-            Area = settingsViewModel.Area,
-        });
-
-        server = new AsyncTcpServer(
-           "0.0.0.0",
-           settingsViewModel.Port,
-           (client, server, loggerFactory) => new SatelliteEventHandler(client, server, loggerFactory, satellite, info),
-           loggerFactory);
-
-        return true;
+            TvDialog.ShowOkDialog("Ops", "Failed to start background service");
+        }
     }
 
-    private async Task StartServerAsync()
+    private void LaunchBackgrund()
     {
-        if (server is null && !await CreateServerAsync())
+        AppControl serviceLaunchRequest = new()
         {
+            ApplicationId = Constants.ServiceAppId,
+            Operation = AppControlOperations.Default
+        };
+
+        AppControl.SendLaunchRequest(serviceLaunchRequest, 0, AppControlReplyCallback);
+    }
+
+    private void HandleServiceEvent(string eventName, Bundle data)
+    {
+        if (eventName == Constants.Events.StateChangedEvent)
+        {
+            listeningAnimationComponent.IsConnecting = false;
+            listeningAnimationComponent.IsConnected = bool.Parse(data.GetItem<string>("isConnected"));
+            listeningAnimationComponent.IsListening = bool.Parse(data.GetItem<string>("isStreaming"));
+
+            bool isRunning = bool.Parse(data.GetItem<string>("isRunning"));
+
+            if (isRunning != stateViewModel.IsRunning)
+            {
+                stateViewModel.IsRunning = isRunning;
+                startStopButton.FlipState();
+            }
+
             return;
         }
 
-        listeningAnimationComponent.IsConnecting = true;
-        stateViewModel.IsRunning = true;
+        if(eventName == Constants.Events.ErrorEvent)
+        {
+            OnSatelliteError(data.GetItem<string>("errorDetails"));
+        }
+    }
 
-        await server!.StartAsync();
-        startStopButton.FlipState();
+    private void SendCommandToService(string command)
+    {
+        using Bundle msg = new();
+        msg.AddItem(Constants.Commands.CommandKey, command);
+        _uiLocalPort.Send(msg, Constants.ServiceAppId, Constants.ServicePortName, false);
     }
 
     private async Task ToggleServer()
     {
-        if (stateViewModel.IsRunning)
-        {
-            await StopServerAsync();
-        }
-        else
-        {
-            await StartServerAsync();
-        }
+        SendCommandToService(stateViewModel.IsRunning ? Constants.Commands.StopCommand : Constants.Commands.StartCommand);
     }
 
-    private void OnSatelliteStateChanged()
+    private void OnSatelliteError(string? details)
     {
-        Asserts.IsNotNull(satellite);
-
-        stateViewModel.IsStreaming = satellite!.IsStreaming;
-        stateViewModel.IsRunning = satellite.IsRunning;
-        stateViewModel.IsPaused = satellite.IsPaused;
-        stateViewModel.MicMuted = satellite.MicMuted;
-        stateViewModel.ServerConnected = !string.IsNullOrEmpty(satellite.ServerId);
-
-        RunUIUpdate(() =>
-        {
-            listeningAnimationComponent.IsConnecting = false;
-            listeningAnimationComponent.IsConnected = stateViewModel.ServerConnected;
-            listeningAnimationComponent.IsListening = stateViewModel.IsStreaming;
-        });
-    }
-
-    private async Task OnWakeWordDetected()
-    {
-        var wav = await TizenAssetReader.ReadAssetAsync("ww_detected3.wav");
-        var wavInfo = WavHelper.ReadWavInfo(wav);
-
-        await speakerProvider.StartAsync(wavInfo.SampleRate, wavInfo.BytesPerSample, wavInfo.Channels);
-        await speakerProvider.PlayAsync(wav, null);
-        await speakerProvider.StopAsync();
-    }
-
-    private async Task OnSatelliteError(Exception exception)
-    {
-        await StopServerAsync();
-
         RunUIUpdate(async () =>
         {
-
+            TvDialog.ShowOkDialog("Ops", $"Error from satellite: {details}");
         });
     }
 
     private async Task StopServerAsync()
     {
-        if (server is not null)
-        {
-            await server.StopAsync();
-            satellite = null;
-            server = null;
-            stateViewModel.IsRunning = false;
-            listeningAnimationComponent.IsConnected = false;
-            listeningAnimationComponent.IsConnecting = false;
-
-            startStopButton.FlipState();
-        }
+        SendCommandToService(Constants.Commands.StopCommand);
     }
 
     private void RunUIUpdate(Action action)

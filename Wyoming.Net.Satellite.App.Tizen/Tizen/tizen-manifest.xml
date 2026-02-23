@@ -8,20 +8,33 @@
 					taskmanage="true"
 					nodisplay="false"
 					launch_mode="single"
-                    api-version="12">
+          api-version="12">
     <label>Tizen</label>
     <icon>Tizen.png</icon>
     <metadata key="http://tizen.org/metadata/prefer_dotnet_aot" value="true" />
   </ui-application>
-   <privileges> 
-         <!--To access media storage-->
-        <privilege>http://tizen.org/privilege/mediastorage</privilege>  
 
-        <!--To access, read, and write to the external storage-->
+  <service-application appid="org.tizen.example.Tizen.Service" 
+                       exec="Wyoming.Net.Satellite.App.Tizen.dll" 
+                       type="dotnet"
+                       nodisplay="true"
+                       api-version="12"
+                       launch_mode="single">
+    <category name="http://tizen.org/category/voice_control_engine"/>
+    <!-- <metadata key="http://samsung.com/tv/metadata/use.low_power_mode" value="true"/> -->
+    <background-category value="media"/>
+    <background-category value="network"/>
+    <background-category value="background-network"/>
+    <background-category value="iot-communication"/>
+  </service-application>
+
+   <privileges> 
+        <privilege>http://tizen.org/privilege/mediastorage</privilege>  
         <privilege>http://tizen.org/privilege/externalstorage</privilege>
         <privilege>http://tizen.org/privilege/ml.inference</privilege>
         <privilege>http://tizen.org/privilege/recorder</privilege>
         <privilege>http://tizen.org/privilege/audio.output</privilege>
+        <privilege>http://tizen.org/privilege/appmanager.launch</privilege>
      </privileges>
     <feature name="http://tizen.org/feature/machine_learning"/>
     <feature name="http://tizen.org/feature/machine_learning.inference"/>
