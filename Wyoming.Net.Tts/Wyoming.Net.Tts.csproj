@@ -10,6 +10,7 @@
     <ItemGroup>
       <ProjectReference Include="..\Wyoming.Core\Wyoming.Net.Core.csproj" />
       <ProjectReference Include="..\Wyoming.Net.Tts.KokoroBackend\Wyoming.Net.Tts.KokoroBackend.csproj" />
+      <ProjectReference Include="..\Wyoming.Net.Tts.OpenAIBackend\Wyoming.Net.Tts.OpenAIBackend.csproj" />
     </ItemGroup>
 
     <ItemGroup>

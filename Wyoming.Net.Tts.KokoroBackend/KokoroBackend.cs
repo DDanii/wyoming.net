@@ -51,20 +51,16 @@ public sealed class KokoroBackend : ITextToSpeechProvider
     public async Task SynthesizeAsync(string text, OnStreamAsync callback)
     {
         var tokens = await Tokenizer.TokenizeAsync(text, kokoroVoice.GetLangCode());
-        int iteration = 0;
         
         foreach (var segment in SegmentationStrategy.SplitToSegments(tokens))
         {
             await Infer(
                 segment,
-                callback,
-                iteration
+                callback
             );
-            
-            iteration++;
         }
 
-        await callback(Memory<float>.Empty, -1);
+        await callback(ReadOnlyMemory<byte>.Empty);
     }
 
     public async Task InitializeAsync(string model, string voice)
@@ -73,7 +69,7 @@ public sealed class KokoroBackend : ITextToSpeechProvider
         
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            // Current implementation is not suitable for CoreML, but leaving this here anyway
+            // Current implementation is not suitable for CoreML so onnx fallsback to CPU, but leaving this here anyway
             // Maybe someone can make it coreml friendly
             defaultOptions.AppendExecutionProvider_CoreML(CoreMLFlags.COREML_FLAG_ENABLE_ON_SUBGRAPH | CoreMLFlags.COREML_FLAG_USE_CPU_AND_GPU);
             
@@ -95,7 +91,7 @@ public sealed class KokoroBackend : ITextToSpeechProvider
         kokoroVoice = KokoroVoice.FromPath(Path.Combine(CrossPlatformHelper.GetVoicesPath(), $"{voice}.npy"));
     }
 
-    private async Task Infer(Memory<int> tokens, OnStreamAsync callback, int iteration)
+    private async Task Infer(Memory<int> tokens, OnStreamAsync callback)
     {
         const int b = 1;
         var features = kokoroVoice.Features;
@@ -146,12 +142,12 @@ public sealed class KokoroBackend : ITextToSpeechProvider
             }
             
             using var results = session.Run(inputs);
-            var resultTensor = results[0].AsTensor<float>();
+            var resultTensor = results[0].AsTensor<byte>();
 
-            if (resultTensor is DenseTensor<float> denseTensor)
+            if (resultTensor is DenseTensor<byte> denseTensor)
             {
-                await callback(denseTensor.Buffer, iteration);
-                await HandlePauseAsync(tokens, callback, iteration);
+                await callback(denseTensor.Buffer);
+                await HandlePauseAsync(tokens, callback);
             }
         }
         finally
@@ -160,13 +156,13 @@ public sealed class KokoroBackend : ITextToSpeechProvider
         }
     }
 
-    private async Task HandlePauseAsync(Memory<int> tokens, OnStreamAsync callback, int iteration)
+    private async Task HandlePauseAsync(Memory<int> tokens, OnStreamAsync callback)
     {
         if (Tokenizer.TryGetChar(tokens.Span[^1], out var c) && Tokenizer.IsPunctuation(c))
         {
             var secondsToPause = PauseAfterSegmentStrategy.GetPauseForSegment(c);
             var sampleLen = (int)secondsToPause * SampleRate;
-            var silenceSamples = ArrayPool<float>.Shared.Rent(sampleLen);
+            var silenceSamples = ArrayPool<byte>.Shared.Rent(sampleLen);
             
             try
             {
@@ -177,12 +173,12 @@ public sealed class KokoroBackend : ITextToSpeechProvider
                     // Zero memory
                     span.Clear();
                     
-                    await callback(new Memory<float>(silenceSamples, 0, sampleLen), iteration);
+                    await callback(new Memory<byte>(silenceSamples, 0, sampleLen));
                 }
             }
             finally
             {
-                ArrayPool<float>.Shared.Return(silenceSamples);
+                ArrayPool<byte>.Shared.Return(silenceSamples);
             }
         }
     }
