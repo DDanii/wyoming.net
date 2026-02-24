@@ -5,7 +5,7 @@ using System.Net.Sockets;
 
 namespace Wyoming.Net.Satellite.App.Tz.Platform;
 
-public class RemoteLogger : IDisposable
+public sealed class RemoteLogger : IDisposable
 {
     private static RemoteLogger? singleton;
 

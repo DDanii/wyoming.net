@@ -6,6 +6,8 @@ namespace Wyoming.Net.Satellite.App.Tz.Platform;
 
 internal class TizenLogger : ILogger, IDisposable
 {
+    internal static readonly TizenLogger Singleton = new();
+
     public IDisposable BeginScope<TState>(TState state) where TState : notnull
     {
         return this;
@@ -39,7 +41,7 @@ internal sealed class TizenLoggerFactory : ILoggerFactory
 
     public ILogger CreateLogger(string categoryName)
     {
-        return new TizenLogger();
+        return TizenLogger.Singleton;
     }
 
     public void Dispose()

@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wyoming.Net.Core.Events;
 using Wyoming.Net.Core.Server;

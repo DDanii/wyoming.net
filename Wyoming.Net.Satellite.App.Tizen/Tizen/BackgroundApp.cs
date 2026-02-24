@@ -1,6 +1,6 @@
 using System;
-using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Tizen.Applications;
 using Tizen.Applications.Messages;
 using Tizen.System;
@@ -12,7 +12,9 @@ namespace Wyoming.Net.Satellite.App.Tz;
 public sealed class BackgroundApp : ServiceApplication
 {
     private MessagePort _localPort = new MessagePort(Constants.ServicePortName, false);
+
     private TizenSpeakerProvider _speakerProvider = new TizenSpeakerProvider();
+    
     private WakeWordSatellite? _satellite;
 
     protected override void OnCreate()
@@ -38,17 +40,18 @@ public sealed class BackgroundApp : ServiceApplication
                 Power.ReleaseLock(PowerLock.Cpu);
             }
         }
-        catch
+        catch(Exception ex)
         {
+            TizenLogger.Singleton.LogError(ex, "Failed to acquire power lock");
         }
     }
 
-    protected override void OnTerminate()
+    protected override async void OnTerminate()
     {
         try
         {
             ManagePowerLock(false);
-            StopSatellite().Wait(TimeSpan.FromSeconds(5));
+            await StopSatellite();
         }
         finally
         {
@@ -84,6 +87,9 @@ public sealed class BackgroundApp : ServiceApplication
             case Constants.Commands.GetStatusCommand:
                 NotifyUiState();
                 break;
+            case Constants.Commands.PingCommand:
+                ReplyToPing();
+                break;
         }
     }
 
@@ -107,7 +113,7 @@ public sealed class BackgroundApp : ServiceApplication
         TizenServer.CreateSingleton(_satellite, settingsViewModel, loggerFactory);
         await TizenServer.Singleton!.StartAsync();
 
-        NotifyUiState();
+        NotifyUiState(true);
     }
 
     private async Task HandleWakeWordDetected()
@@ -121,9 +127,9 @@ public sealed class BackgroundApp : ServiceApplication
         SendWakeWordDetected();
     }
 
-    private void NotifyUiState()
+    private void NotifyUiState(bool isConnecting = false)
     {
-        if (_satellite == null || CheckUiState() != ApplicationRunningContext.AppState.Foreground)
+        if (_satellite == null || ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
         {
             return;
         }
@@ -133,13 +139,14 @@ public sealed class BackgroundApp : ServiceApplication
         msg.AddItem("isRunning", _satellite.IsRunning.ToString());
         msg.AddItem("isStreaming", _satellite.IsStreaming.ToString());
         msg.AddItem("isConnected", (!string.IsNullOrEmpty(_satellite.ServerId)).ToString());
+        msg.AddItem("isConnecting", isConnecting ? bool.TrueString : bool.FalseString);
 
         SendMessage(msg);
     }
 
     private Task NotifyError(Exception? ex)
     {
-        if (_satellite == null || CheckUiState() != ApplicationRunningContext.AppState.Foreground)
+        if (_satellite == null || ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
         {
             return Task.CompletedTask;
         }
@@ -161,34 +168,28 @@ public sealed class BackgroundApp : ServiceApplication
         SendMessage(msg);
     }
 
+    private void ReplyToPing()
+    {
+        Bundle msg = new();
+        msg.AddItem(Constants.Events.EventKey, Constants.Events.PongEvent);
+
+        SendMessage(msg);
+    }
+
     private async Task StopSatellite()
     {
         if (TizenServer.Singleton != null)
         {
             await TizenServer.Singleton.StopAsync();
+            NotifyUiState();
             TizenServer.Singleton = null;
             _satellite = null;
-        }
-
-        NotifyUiState();
-    }
-
-    private static ApplicationRunningContext.AppState CheckUiState()
-    {
-        try
-        {
-            using var context = new ApplicationRunningContext(Constants.UiAppId);
-            return context.State;
-        }
-        catch
-        {
-            return ApplicationRunningContext.AppState.Undefined;
         }
     }
 
     private void SendMessage(Bundle msg)
     {
-        if(CheckUiState() != ApplicationRunningContext.AppState.Foreground)
+        if(ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
         {
             return;
         }
@@ -197,9 +198,10 @@ public sealed class BackgroundApp : ServiceApplication
         {
             _localPort.Send(msg, Constants.UiAppId, Constants.UiPortName);
         }
-        catch
+        catch (Exception ex)
         {
             // Better to fail silently than crash the service?
+            TizenLogger.Singleton.LogError(ex, "Failed to send message to UI");
         }
         finally
         {

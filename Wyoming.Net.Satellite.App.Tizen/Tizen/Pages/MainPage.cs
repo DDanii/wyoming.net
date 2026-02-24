@@ -1,11 +1,10 @@
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 using Tizen.Applications;
-using Tizen.Applications.Messages;
 using Tizen.NUI;
 using Tizen.NUI.BaseComponents;
 using Wyoming.Net.Satellite.App.Tz.Components;
+using Wyoming.Net.Satellite.App.Tz.Platform;
 using Wyoming.Net.Satellite.App.Tz.ViewModels;
 
 namespace Wyoming.Net.Satellite.App.Tz.Pages;
@@ -14,13 +13,12 @@ public class MainPage : View
 {
     private ListeningAnimationComponent listeningAnimationComponent;
 
-    private MessagePort _uiLocalPort = new(Constants.UiPortName, false);
-
     private SatelliteStateViewModel stateViewModel = new();
 
     private SatelliteButton startStopButton;
 
     private readonly View parent;
+    
     private readonly SynchronizationContext uiContext;
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
@@ -31,7 +29,11 @@ public class MainPage : View
         uiContext = TizenSynchronizationContext.Current!;
 
         InitializeUI();
-        LaunchBackgrund();
+        ServiceManager.Singleton.MessageReceived += (s, e) =>
+        {
+            string eventName = e.Message.GetItem<string>(Constants.Events.EventKey);
+            RunUIUpdate(() => HandleServiceEvent(eventName, e.Message));
+        };
     }
 
     private void InitializeUI()
@@ -67,7 +69,7 @@ public class MainPage : View
         {
             UpFocusableView = parent,
         };
-        startStopButton.Clicked += async (s, args) => await ToggleServer();
+        startStopButton.Clicked += (s, args) => ToggleServer();
 
         view.Add(title);
         view.Add(listeningAnimationComponent);
@@ -81,51 +83,16 @@ public class MainPage : View
         FocusManager.Instance.SetCurrentFocusView(startStopButton);
     }
 
-    private void InitializeCommunication()
-    {
-        _uiLocalPort.MessageReceived += (s, e) =>
-        {
-            string eventName = e.Message.GetItem<string>(Constants.Events.EventKey);
-            RunUIUpdate(() => HandleServiceEvent(eventName, e.Message));
-        };
-
-        _uiLocalPort.Listen();
-
-        SendCommandToService(Constants.Commands.GetStatusCommand);
-    }
-
-    private void AppControlReplyCallback(AppControl launchRequest, AppControl replyRequest, AppControlReplyResult result)
-    {
-        if (result >= AppControlReplyResult.Succeeded)
-        {
-            InitializeCommunication();
-        }
-        else
-        {
-            TvDialog.ShowOkDialog("Ops", "Failed to start background service");
-        }
-    }
-
-    private void LaunchBackgrund()
-    {
-        AppControl serviceLaunchRequest = new()
-        {
-            ApplicationId = Constants.ServiceAppId,
-            Operation = AppControlOperations.Default
-        };
-
-        AppControl.SendLaunchRequest(serviceLaunchRequest, 0, AppControlReplyCallback);
-    }
-
     private void HandleServiceEvent(string eventName, Bundle data)
     {
         if (eventName == Constants.Events.StateChangedEvent)
         {
-            listeningAnimationComponent.IsConnecting = false;
+            bool isConnecting = bool.Parse(data.GetItem<string>("isConnecting"));
+            listeningAnimationComponent.IsConnecting = isConnecting;
             listeningAnimationComponent.IsConnected = bool.Parse(data.GetItem<string>("isConnected"));
             listeningAnimationComponent.IsListening = bool.Parse(data.GetItem<string>("isStreaming"));
 
-            bool isRunning = bool.Parse(data.GetItem<string>("isRunning"));
+            bool isRunning = bool.Parse(data.GetItem<string>("isRunning")) || isConnecting;
 
             if (isRunning != stateViewModel.IsRunning)
             {
@@ -136,22 +103,22 @@ public class MainPage : View
             return;
         }
 
-        if(eventName == Constants.Events.ErrorEvent)
+        if (eventName == Constants.Events.ErrorEvent)
         {
             OnSatelliteError(data.GetItem<string>("errorDetails"));
         }
     }
 
-    private void SendCommandToService(string command)
+    private void ToggleServer()
     {
-        using Bundle msg = new();
-        msg.AddItem(Constants.Commands.CommandKey, command);
-        _uiLocalPort.Send(msg, Constants.ServiceAppId, Constants.ServicePortName, false);
-    }
-
-    private async Task ToggleServer()
-    {
-        SendCommandToService(stateViewModel.IsRunning ? Constants.Commands.StopCommand : Constants.Commands.StartCommand);
+        if (stateViewModel.IsRunning)
+        {
+            ServiceManager.Singleton.SendStopSatellite();
+        }
+        else
+        {
+            ServiceManager.Singleton.SendStartSatellite();
+        }
     }
 
     private void OnSatelliteError(string? details)
@@ -160,11 +127,6 @@ public class MainPage : View
         {
             TvDialog.ShowOkDialog("Ops", $"Error from satellite: {details}");
         });
-    }
-
-    private async Task StopServerAsync()
-    {
-        SendCommandToService(Constants.Commands.StopCommand);
     }
 
     private void RunUIUpdate(Action action)

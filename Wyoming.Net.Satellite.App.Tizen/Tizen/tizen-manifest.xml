@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns="http://tizen.org/ns/packages" api-version="8.0" package="org.tizen.example.Tizen" version="1.0.0">
+<manifest xmlns="http://tizen.org/ns/packages" api-version="8.0" package="com.guilhermepohlmann.wyoming.net" version="1.0.0">
   <profile name="tv" />
-  <ui-application appid="org.tizen.example.Tizen"
+  <ui-application appid="com.guilhermepohlmann.wyoming.net"
 					exec="Wyoming.Net.Satellite.App.Tizen.dll"
 					type="dotnet-nui"
 					multiple="false"
@@ -9,12 +9,12 @@
 					nodisplay="false"
 					launch_mode="single"
           api-version="12">
-    <label>Tizen</label>
-    <icon>Tizen.png</icon>
+    <label>Wyoming.Net</label>
+    <icon>app_icon.png</icon>
     <metadata key="http://tizen.org/metadata/prefer_dotnet_aot" value="true" />
   </ui-application>
 
-  <service-application appid="org.tizen.example.Tizen.Service" 
+  <service-application appid="com.guilhermepohlmann.wyoming.net.service" 
                        exec="Wyoming.Net.Satellite.App.Tizen.dll" 
                        type="dotnet"
                        nodisplay="true"

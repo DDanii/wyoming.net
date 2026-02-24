@@ -4,11 +4,11 @@ namespace Wyoming.Net.Satellite.App.Tz;
 
 internal static class Constants
 {
-    public const string UiAppId = "org.tizen.example.Tizen";
+    public const string UiAppId = "com.guilhermepohlmann.wyoming.net";
 
     public const string UiPortName = "wyoming.net.ui";
 
-    public const string ServiceAppId = "org.tizen.example.Tizen.Service";
+    public const string ServiceAppId = "com.guilhermepohlmann.wyoming.net.service";
 
     public const string ServicePortName = "wyoming.net.server";
 
@@ -21,6 +21,8 @@ internal static class Constants
         public const string StateChangedEvent = "STATE_CHANGED";
 
         public const string ErrorEvent = "ERROR";
+
+        public const string PongEvent = "PONG";
     }
 
     public static class Commands
@@ -32,5 +34,7 @@ internal static class Constants
           public const string StopCommand = "STOP";
 
           public const string GetStatusCommand = "GET_STATUS";
+
+          public const string PingCommand = "PING";
     }
 }
