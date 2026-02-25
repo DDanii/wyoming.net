@@ -10,7 +10,7 @@
 					launch_mode="single"
           api-version="12">
     <label>Wyoming.Net</label>
-    <icon>app_icon.png</icon>
+    <icon>app_icon_black.png</icon>
     <metadata key="http://tizen.org/metadata/prefer_dotnet_aot" value="true" />
   </ui-application>
 

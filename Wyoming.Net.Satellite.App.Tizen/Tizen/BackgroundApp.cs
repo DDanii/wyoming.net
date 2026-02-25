@@ -105,7 +105,7 @@ public sealed class BackgroundApp : ServiceApplication
         var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync();
         var loggerFactory = new TizenLoggerFactory();
 
-        _satellite = new WakeWordSatellite(settings, wakeModels, loggerFactory, new TizenMicProvider(), _speakerProvider);
+        _satellite = new WakeWordSatellite(settings, wakeModels, loggerFactory, new TizenMicProvider(loggerFactory.CreateLogger(string.Empty)), _speakerProvider);
         _satellite.StateChanged += () => NotifyUiState();
         _satellite.WakeWordDetected += HandleWakeWordDetected;
         _satellite.SatelliteError += NotifyError;
