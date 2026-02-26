@@ -85,8 +85,6 @@ public sealed class SynthesizeEventHandler : AsyncEventHandler
         if (SynthesizeStop.IsType(ev.Type))
         {
             Asserts.IsNotNull(channel, "Channel should not be null at this point");
-            
-            isStreaming = false;
             channel!.Writer.Complete();
         }
 
@@ -106,6 +104,7 @@ public sealed class SynthesizeEventHandler : AsyncEventHandler
             await HandleSynthesizeAsync(chunk, CancellationToken.None);
         }
         
+        logger.LogDebug("Synthesize complete");
         await StopAudioAsync();
         await writer.WriteEventAsync(SynthesizeStoppedEvent);
     }
@@ -163,10 +162,7 @@ public sealed class SynthesizeEventHandler : AsyncEventHandler
             inferenceBackend = null;
         }
 
-        if (isStreaming)
-        {
-            await writer.WriteEventAsync(AudioStopEvent);
-            isStreaming = false;
-        }
+        await writer.WriteEventAsync(AudioStopEvent);
+        isStreaming = false;
     }
 }
