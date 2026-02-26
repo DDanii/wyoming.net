@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Tizen.Multimedia;
 using Wyoming.Net.Core;
@@ -11,8 +12,11 @@ namespace Wyoming.Net.Satellite.App.Tz.Platform;
 
 internal sealed class TizenSpeakerProvider : ISpeakerProvider, IDisposable
 {
-    private AudioPlayback audioPlayback;
+    private AudioPlayback? audioPlayback;
+
     private IntPtr audioPlaybackHandle;
+
+    private Channel<byte[]>? playbackChannel;
 
     public TizenSpeakerProvider()
     {
@@ -24,10 +28,80 @@ internal sealed class TizenSpeakerProvider : ISpeakerProvider, IDisposable
 
     public int? Channels { get; private set; }
 
-    public Task PlayAsync(byte[] samples, long? timestamp)
+    public async Task PlayAsync(byte[] samples, long? timestamp)
     {
         Asserts.IsNotNull(audioPlayback);
 
+        if (await playbackChannel!.Writer.WaitToWriteAsync().ConfigureAwait(false))
+        {
+            await playbackChannel.Writer.WriteAsync(samples).ConfigureAwait(false);
+        }
+    }
+
+    public ValueTask StartAsync(int rate, int width, int channels)
+    {
+        if (audioPlayback != null)
+        {
+            if (rate == Rate && width == Width && channels == Channels)
+            {
+                InitializePlaybackLoop();
+                audioPlayback.Resume();
+                return ValueTask.CompletedTask;
+            }
+
+            audioPlayback.Pause();
+            audioPlayback.Dispose();
+            audioPlayback = null;
+        }
+
+        audioPlayback = new AudioPlayback(rate, ToTizenChannel(channels), ToTizenSampleType(width));
+        audioPlayback.Prepare();
+
+        audioPlaybackHandle = (IntPtr)audioPlayback.GetType()
+                                                   .GetField("_handle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                                                   .GetValue(audioPlayback)!;
+
+        Rate = rate;
+        Width = width;
+        Channels = channels;
+        InitializePlaybackLoop();
+
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask StopAsync()
+    {
+        Asserts.IsNotNull(audioPlayback);
+        Asserts.IsNotNull(playbackChannel);
+        
+        playbackChannel!.Writer.Complete();
+        return ValueTask.CompletedTask;
+    }
+
+    private void InitializePlaybackLoop()
+    {
+        playbackChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions()
+        {
+            SingleReader = true,
+            SingleWriter = true
+        });
+
+        _ = Task.Factory.StartNew(PlaybackLoop);
+    }
+
+    private async Task PlaybackLoop()
+    {
+        while (await playbackChannel!.Reader.WaitToReadAsync())
+        {
+            var samples = await playbackChannel.Reader.ReadAsync();
+            WritePlayback(audioPlaybackHandle, samples);
+        }
+        
+        Reset();
+    }
+
+    private static void WritePlayback(IntPtr audioPlaybackHandle, byte[] samples)
+    {
         var written = 0;
         ref var ptr = ref MemoryMarshal.GetArrayDataReference(samples);
 
@@ -43,45 +117,6 @@ internal sealed class TizenSpeakerProvider : ISpeakerProvider, IDisposable
             written += (int)ret;
         }
         while(written < samples.Length);
-
-        return Task.CompletedTask;
-    }
-
-    public ValueTask StartAsync(int rate, int width, int channels)
-    {
-        if (audioPlayback != null)
-        {
-            if (rate == Rate && width == Width && channels == Channels)
-            {
-                audioPlayback.Resume();
-                return ValueTask.CompletedTask;
-            }
-
-            audioPlayback.Pause();
-            audioPlayback.Dispose();
-            audioPlayback = null;
-        }
-
-        audioPlayback = new AudioPlayback(rate, ToTizenChannel(channels), ToTizenSampleType(width));
-        audioPlayback.Prepare();
-
-        audioPlaybackHandle = (IntPtr)audioPlayback.GetType()
-                                                   .GetField("_handle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                                                   .GetValue(audioPlayback);
-
-        Rate = rate;
-        Width = width;
-        Channels = channels;
-
-        return ValueTask.CompletedTask;
-    }
-
-    public ValueTask StopAsync()
-    {
-        audioPlayback.Drain();
-        audioPlayback.Flush();
-        audioPlayback.Pause();
-        return ValueTask.CompletedTask;
     }
 
     private static AudioChannel ToTizenChannel(int channels)
@@ -106,6 +141,18 @@ internal sealed class TizenSpeakerProvider : ISpeakerProvider, IDisposable
             4 => AudioSampleType.S32Le,
             _ => throw new NotImplementedException($"{width} width is not implemented")
         };
+    }
+
+    private void Reset()
+    {
+        Asserts.IsNotNull(audioPlayback);
+        Asserts.IsNotNull(playbackChannel);
+
+        audioPlayback!.Drain();
+        audioPlayback.Flush();
+        audioPlayback.Pause();
+
+        playbackChannel = null;
     }
 
     public void Dispose()

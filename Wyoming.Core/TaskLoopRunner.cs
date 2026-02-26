@@ -104,17 +104,8 @@ public abstract class TaskLoopRunner
 
             if (shouldWait && loopTask is not null && !loopTask.IsCompleted)
             {
-                try
-                {
-                    await loopTask.WaitAsync(TimeSpan.FromMinutes(5));
-                    loopTask.Dispose();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                    throw;
-                }
-               
+                await loopTask;
+                loopTask.Dispose();
             }
             await OnStopAsync();
         }
