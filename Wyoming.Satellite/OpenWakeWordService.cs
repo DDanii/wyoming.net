@@ -32,7 +32,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
     // Input por WakeWordModel
     private readonly int embeddingBufferSize;
-    
+
     private readonly IEmbeddingModel embeddingModel;
     private readonly IMelspectrogramModel melspectrogramModel;
     private readonly IWakeWordModel wakeWordModel;
@@ -50,7 +50,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         IWakeWordPredictionHandler predictionHandler,
         ILogger<OpenWakeWordService> logger,
         int maxPatience = 15,
-        float predictionThreshold = 0.5f) 
+        float predictionThreshold = 0.5f)
         : base(logger, TaskLoopRunnerOptions.RestartOnFail)
     {
         embeddingModel = models.EmbeddingModel;
@@ -60,15 +60,16 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         embeddingBuffer = new SlidingWindowPcmBuffer(embeddingBufferSize);
         melSpectogramBufferSize = models.EmbeddingModel.FlatShapeSize;
         melBuffer = new SlidingWindowPcmBuffer(melSpectogramBufferSize);
-        
+
         this.predictionThreshold = predictionThreshold;
         this.maxPatience = maxPatience;
         this.predictionHandler = predictionHandler;
 
-        channel = Channel.CreateUnbounded<AudioTask<float>>(new UnboundedChannelOptions
+        channel = Channel.CreateBounded<AudioTask<float>>(new BoundedChannelOptions(32)
         {
             SingleReader = true,
             SingleWriter = true,
+            FullMode = BoundedChannelFullMode.DropOldest,
             AllowSynchronousContinuations = false
         });
     }
@@ -94,12 +95,12 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             {
                 continue;
             }
-            
+
             using var chunk = await channel.Reader.ReadAsync(CancellationTokenSource!.Token);
             float prediction = Predict(chunk.Buffer.Span);
 
             logger.LogDebug("Prediction: {prediction}", prediction);
-            
+
             if (patience > 0)
             {
                 patience--;
@@ -114,23 +115,62 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         }
     }
 
+    int silenceFrames = 0;
+
     private float Predict(ReadOnlySpan<float> samples)
     {
+        if (IsSilence(samples))
+        {
+            silenceFrames = Math.Max(silenceFrames, 0);
+
+            if(++silenceFrames == 5)
+            {
+                melBuffer.Clear();
+                embeddingBuffer.Clear();
+            }
+            return 0f;
+        }
+
+        silenceFrames = 0;
+
         // samples -> MelspectrogramModel -> EmbeddingModel -> WakeWordModel
 
         Span<float> melOutputBuffer = stackalloc float[melspectrogramModel.FlattenedOutputSize];
         melspectrogramModel.GenerateSpectrogram(samples, melOutputBuffer);
-        
+
         melBuffer.Append(melOutputBuffer, melSpectogramBufferSize - melOutputBuffer.Length);
 
-        Span<float> embeddingOutputBuffer  = stackalloc float[embeddingModel.FlattenedOutputSize];
+        Span<float> embeddingOutputBuffer = stackalloc float[embeddingModel.FlattenedOutputSize];
         embeddingModel.GenerateAudioEmbeddings(melBuffer.Span, embeddingOutputBuffer);
-
         embeddingBuffer.Append(embeddingOutputBuffer, embeddingBufferSize - embeddingOutputBuffer.Length);
 
         float prediction = wakeWordModel.Predict(embeddingBuffer.Span);
 
         return prediction;
+    }
+
+    private bool IsSilence(ReadOnlySpan<float> samples)
+    {
+        float energy = 0f;
+        int zeroCrossings = 0;
+
+        for (int i = 1; i < samples.Length; i++)
+        {
+            energy += samples[i] * samples[i];
+            if ((samples[i] > 0) != (samples[i - 1] > 0))
+                zeroCrossings++;
+        }
+
+        energy /= samples.Length;
+        float zcr = (float)zeroCrossings / samples.Length;
+
+        // Low energy = silence; high energy + very high ZCR = noise, not speech
+        if (energy < 0.0008)
+            return true;
+        if (zcr > 0.4f)
+            return true; // likely noise, not speech
+
+        return false;
     }
 
     public async ValueTask DisposeAsync()
@@ -166,8 +206,13 @@ sealed class SlidingWindowPcmBuffer
 
         newData.CopyTo(span.Slice(windowSize));  // Put new data at the end
     }
-    
+
     public ReadOnlySpan<float> Span => buffer.AsSpan();
+
+    public void Clear()
+    {
+        buffer.AsSpan().Clear();
+    }
 }
 
 sealed class AudioTask<T> : IDisposable
@@ -183,18 +228,13 @@ sealed class AudioTask<T> : IDisposable
         chunk.CopyTo(this.chunk);
     }
 
-    ~AudioTask()
-    {
-        Dispose(false);
-    }
-
     public Memory<T> Buffer => new(chunk, 0, size);
 
     private void Dispose(bool disposing)
     {
         ArrayPool<T>.Shared.Return(chunk);
 
-        if(disposing)
+        if (disposing)
         {
             GC.SuppressFinalize(this);
         }

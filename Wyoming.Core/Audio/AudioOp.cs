@@ -4,6 +4,8 @@ namespace Wyoming.Net.Core.Audio;
 
 public static class AudioOp
 {
+    private const float Pcm16Scale = 1f / 32768f;
+
     /// <summary>
     /// Convert float sampels to int16 sampels
     /// </summary>
@@ -57,31 +59,23 @@ public static class AudioOp
 
     public static int Pcm16ToFloat(ReadOnlySpan<byte> src, Span<float> dst)
     {
-        if (src.Length % 2 != 0)
+        if ((src.Length & 1) != 0)
         {
             throw new ArgumentException("Source length must be even (PCM16)", nameof(src));
         }
 
-        int sampleCount = src.Length / 2;
+        var samples = MemoryMarshal.Cast<byte, short>(src);
 
-        if (dst.Length < sampleCount)
+        if (dst.Length < samples.Length)
         {
             throw new ArgumentException("Destination span too small", nameof(dst));
         }
 
-        int j = 0;
-
-        for (int i = 0; i < sampleCount; i++)
+        for (int i = 0; i < samples.Length; i++)
         {
-            // Little-endian PCM16
-            short val = (short)(src[j] | (src[j + 1] << 8));
-            j += 2;
-
-            // Scale to float [-1.0, 1.0)
-            // Using 32768f correctly maps -32768 -> -1.0
-            dst[i] = val / 32768f;
+            dst[i] = samples[i] * Pcm16Scale;
         }
 
-        return sampleCount;
+        return samples.Length;
     }
 }
