@@ -1,7 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Buffers;
+using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Wyoming.Net.Core;
+using Wyoming.Net.Core.Audio;
+using Wyoming.Net.Core.WebRtc;
+using Wyoming.Net.Core.WebRtc.Vad;
 using Wyoming.Net.Satellite.ML.Models.OpenWakeWord;
 
 namespace Wyoming.Net.Satellite;
@@ -42,8 +46,15 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private readonly int maxPatience;
     private readonly float predictionThreshold;
     private readonly IWakeWordPredictionHandler predictionHandler;
+    private readonly WebRtcVad vad = new()
+    {
+        SampleRate = 16000,
+        Mode = VadMode.VeryAggressive
+    };
 
     private readonly Channel<AudioTask<float>> channel;
+    
+    private int silenceFrames = 0;
 
     public OpenWakeWordService(
         OpenWakeWordModels models,
@@ -114,15 +125,13 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             }
         }
     }
-
-    int silenceFrames = 0;
-
+    
     private float Predict(ReadOnlySpan<float> samples)
     {
         if (IsSilence(samples))
         {
             silenceFrames = Math.Max(silenceFrames, 0);
-
+        
             if(++silenceFrames == 5)
             {
                 melBuffer.Clear();
@@ -131,6 +140,11 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             return 0f;
         }
 
+        if (!VadIsSpeech(samples))
+        {
+            return 0f;
+        }
+        
         silenceFrames = 0;
 
         // samples -> MelspectrogramModel -> EmbeddingModel -> WakeWordModel
@@ -149,7 +163,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         return prediction;
     }
 
-    private bool IsSilence(ReadOnlySpan<float> samples)
+    private static bool IsSilence(ReadOnlySpan<float> samples)
     {
         float energy = 0f;
         int zeroCrossings = 0;
@@ -157,8 +171,11 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         for (int i = 1; i < samples.Length; i++)
         {
             energy += samples[i] * samples[i];
+
             if ((samples[i] > 0) != (samples[i - 1] > 0))
+            {
                 zeroCrossings++;
+            }
         }
 
         energy /= samples.Length;
@@ -166,11 +183,44 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
         // Low energy = silence; high energy + very high ZCR = noise, not speech
         if (energy < 0.0008)
+        {
             return true;
+        }
+
         if (zcr > 0.4f)
+        {
             return true; // likely noise, not speech
+        }
 
         return false;
+    }
+
+    private bool VadIsSpeech(ReadOnlySpan<float> samples)
+    {
+        Span<byte> frames = stackalloc byte[samples.Length * 2];
+        AudioOp.FloatToPcm16(samples, frames);
+        
+        ReadOnlySpan<short> pcm = MemoryMarshal.Cast<byte, short>(frames);
+        
+        const int chunkSize = 480; // 30ms at 16kHz
+        bool hasSpeech = false;
+        
+        for (int i = 0; i + chunkSize <= pcm.Length; i += chunkSize)
+        {
+            if (vad.Process(pcm.Slice(i, chunkSize)))
+            {
+                hasSpeech = true;
+                break;
+            }
+        }
+        
+        if (!hasSpeech)
+        {
+            int remaining = pcm.Length % chunkSize; // 1760 % 480 = 320 (20ms)
+            hasSpeech = vad.Process(pcm.Slice(pcm.Length - remaining, remaining));
+        }
+
+        return hasSpeech;
     }
 
     public async ValueTask DisposeAsync()
