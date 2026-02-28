@@ -66,13 +66,21 @@ public sealed class UIApp : NUIApplication
             HeightResizePolicy = ResizePolicyType.FillToParent
         };
 
+        var vadSettingsPage = new VadSettingsPage(satelliteSettingsVm.VadSettings, tabView)
+        {
+            WidthResizePolicy = ResizePolicyType.FillToParent,
+            HeightResizePolicy = ResizePolicyType.FillToParent
+        };
+
         var assistantTab = tabView.AddTab("Assistant", main);
         var satelliteSettingsTab = tabView.AddTab("Satellite Settings", satelliteSettingsPage);
         var wakeSettingsTab = tabView.AddTab("Wake Settings", wakeSettingsPage);
+        var vadSettingsTab = tabView.AddTab("VAD Settings", vadSettingsPage);
 
         assistantTab.Leave += OnTabLeave;
         satelliteSettingsTab.Leave += OnTabLeave;
         wakeSettingsTab.Leave += OnTabLeave;
+        vadSettingsTab.Leave += OnTabLeave;
 
         container.Add(tabView);
         Window.Instance.Add(container);

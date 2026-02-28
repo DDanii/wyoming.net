@@ -2,11 +2,15 @@ namespace Wyoming.Net.Satellite.App.Tz.ViewModels;
 
 using System.IO;
 using System.Text.Json;
+using Wyoming.Net.Core.WebRtc.Vad;
 using Wyoming.Net.Satellite.App.Tz.Platform;
+using VadType = Wyoming.Net.Satellite.VadSettings.VadType;
 
 public sealed class SatelliteSettingsViewModel
 {
     public WakeSettingsViewModel WakeSettings { get; set; } = new();
+
+    public VadSettingsViewModel VadSettings { get; set; } = new();
     
     public string? Area { get; set; } = "Sala";
 
@@ -52,6 +56,13 @@ public sealed class SatelliteSettingsViewModel
         SatelliteSettings.Wake.MaxPatience = WakeSettings.MaxPatience;
         SatelliteSettings.Wake.PredictionThreshold = WakeSettings.PredictionThreshold;
         SatelliteSettings.Wake.RefractorySeconds = WakeSettings.RefractorySeconds;
+
+        SatelliteSettings.Vad.Enabled = VadSettings.Enabled;
+        SatelliteSettings.Vad.Type = (VadType)VadSettings.Type;
+        SatelliteSettings.Vad.WebRtcMode = (VadMode)VadSettings.WebRtcMode;
+        SatelliteSettings.Vad.UseEnergyGate = VadSettings.UseEnergyGate;
+        SatelliteSettings.Vad.EnergyGateThreshold = VadSettings.EnergyGateThreshold;
+        SatelliteSettings.Vad.EnergyGateZcr = VadSettings.EnergyGateZcr;
     }
 
     public static SatelliteSettingsViewModel Load()

@@ -23,4 +23,14 @@ public static class Extensions
 
        return f;
     }
+
+    public static bool ToBoolOrDefault(this string? s)
+    {
+        if(string.IsNullOrEmpty(s) || !bool.TryParse(s, out bool b))
+        {
+            return default;
+        }
+
+       return b;
+    }
 }
