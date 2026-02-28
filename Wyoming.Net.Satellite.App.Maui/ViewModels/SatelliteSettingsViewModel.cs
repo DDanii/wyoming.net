@@ -57,6 +57,10 @@ public partial class SatelliteSettingsViewModel : ObservableObject
     public void UpdateSatelliteSettings()
     {
         SatelliteSettings.Wake.Name = WakeSettings.Model;
+        SatelliteSettings.Wake.MaxPatience = WakeSettings.MaxPatience;
+        SatelliteSettings.Wake.PredictionThreshold = WakeSettings.PredictionThreshold;
+        SatelliteSettings.Wake.RefractorySeconds = WakeSettings.RefractorySeconds;
+
         SatelliteSettings.Vad.Enabled = VadSettings.Enabled;
         SatelliteSettings.Vad.Type = VadSettings.Type switch
         {

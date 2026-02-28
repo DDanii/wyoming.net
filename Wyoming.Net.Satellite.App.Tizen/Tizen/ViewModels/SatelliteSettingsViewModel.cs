@@ -38,12 +38,7 @@ public sealed class SatelliteSettingsViewModel
             return false;
         }
 
-        if(WakeSettings.Enabled)
-        {
-            return WakeSettings.IsValid(out message);
-        }
-
-        return true;
+       return WakeSettings.IsValid(out message);
     }
 
     public void Save()
@@ -51,14 +46,12 @@ public sealed class SatelliteSettingsViewModel
         File.WriteAllText(GetSettingsFilePath(), JsonSerializer.Serialize(this));
     }
 
-    public SatelliteSettings ToSatelliteSettings()
+    public void UpdateSatelliteSettings()
     {
-        var settings = new SatelliteSettings()
-        {
-            Wake = WakeSettings.ToSatelliteSettings()
-        };
-
-        return settings;
+        SatelliteSettings.Wake.Name = WakeSettings.Model;
+        SatelliteSettings.Wake.MaxPatience = WakeSettings.MaxPatience;
+        SatelliteSettings.Wake.PredictionThreshold = WakeSettings.PredictionThreshold;
+        SatelliteSettings.Wake.RefractorySeconds = WakeSettings.RefractorySeconds;
     }
 
     public static SatelliteSettingsViewModel Load()
