@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
 		<OutputType>Exe</OutputType>
 		<RootNamespace>Wyoming.Net.Satellite.App.Droid</RootNamespace>
 		<Nullable>enable</Nullable>

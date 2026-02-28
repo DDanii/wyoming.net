@@ -1,8 +1,3 @@
-﻿using Microsoft.Extensions.Logging;
-using Wyoming.Net.Core;
-using Wyoming.Net.Core.Audio;
-using Wyoming.Net.Core.Events;
-using Wyoming.Net.Core.Server;
 using Wyoming.Net.Satellite.App.Maui.Abstractions;
 using Wyoming.Net.Satellite.App.Maui.ViewModels;
 
@@ -10,104 +5,77 @@ namespace Wyoming.Net.Satellite.App.Maui;
 
 public partial class MainPage : ContentPage
 {
-    private readonly ILoggerFactory loggerFactory;
-
-    private readonly IMicInputProvider micProvider;
-    private readonly ISpeakerProvider speakerProvider;
+    private readonly ISatelliteService satelliteService;
     private readonly SatelliteSettingsViewModel settingsViewModel;
     private readonly SatelliteStateViewModel stateViewModel;
-    private readonly IAssetReader assetReader;
-    private WakeWordSatellite? satellite;
-    private AsyncTcpServer? server;
 
     public MainPage(
-        ILoggerFactory loggerFactory, 
-        IMicInputProvider micInputProvider,
-        ISpeakerProvider speakerProvider, 
-        IAssetReader assetReader,
-        SatelliteSettingsViewModel vm
+        ISatelliteService satelliteService,
+        SatelliteSettingsViewModel settingsViewModel
         )
     {
         InitializeComponent();
-        this.loggerFactory = loggerFactory;
-        this.micProvider = micInputProvider;
-        this.speakerProvider = speakerProvider;
-        this.assetReader = assetReader;
-        this.settingsViewModel = vm;
+        this.satelliteService = satelliteService;
+        this.settingsViewModel = settingsViewModel;
         this.stateViewModel = new SatelliteStateViewModel();
 
         BindingContext = this.stateViewModel;
+
+        satelliteService.StateChanged += OnSatelliteStateChanged;
+        satelliteService.ErrorOccurred += OnSatelliteError;
+        satelliteService.WakeWordDetected += OnWakeWordDetected;
+
+        SyncStateFromService();
     }
-    
-    private async Task<bool> CreateServerAsync()
+
+    private void SyncStateFromService()
     {
-        if (!settingsViewModel.IsValid(out var message))
+        stateViewModel.IsRunning = satelliteService.IsRunning;
+        stateViewModel.IsStreaming = satelliteService.IsStreaming;
+        stateViewModel.ServerConnected = satelliteService.ServerConnected;
+        stateViewModel.IsPaused = satelliteService.IsPaused;
+        stateViewModel.MicMuted = satelliteService.MicMuted;
+
+        if (stateViewModel.IsRunning || satelliteService.IsRunning)
         {
-            await DisplayAlert(
-                "Failed start satellite",
-                message,
-                "OK");
-
-            return false;
-        }
-
-        settingsViewModel.UpdateSatelliteSettings();
-        var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync(assetReader);
-
-        satellite = new WakeWordSatellite(wakeModels, loggerFactory, micProvider, speakerProvider);
-        satellite.StateChanged += OnSatelliteStateChanged;
-        satellite.SatelliteError += OnSatelliteError;
-        satellite.WakeWordDetected  += OnWakeWordDetected;
-
-        var info = new Info(new Core.Events.Satellite()
-        {
-            ActiveWakeWords = [SatelliteSettings.Wake.Name!],
-            Attribution = new Attribution
+            RunUIUpdate(() =>
             {
-                Name = "Guilherme Pohlmann da Rosa",
-                Url = "https://github.com/guilherme-pohlmann/wyoming-net"
-            },
-            Description = settingsViewModel.Description,
-            Name = settingsViewModel.Name!,
-            HasVad = false,
-            Installed = true,
-            MaxActiveWakeWords = 1,
-            SupportsTrigger = true,
-            Version = "0.0.1",
-            Area = settingsViewModel.Area,
-        });
-
-        server = new AsyncTcpServer(
-           "0.0.0.0",
-           settingsViewModel.Port,
-           (client, server, loggerFactory) => new SatelliteEventHandler(client, server, loggerFactory, satellite, info),
-           loggerFactory);
-
-        return true;
+                StartStopButton.Text = "Stop Satellite";
+                StartStopButton.Background = new SolidColorBrush(Colors.Red);
+                ListeningAnimation.IsConnected = stateViewModel.ServerConnected;
+                ListeningAnimation.IsListening = stateViewModel.IsStreaming;
+            });
+        }
     }
 
     private void OnSatelliteStateChanged()
     {
-        Asserts.IsNotNull(satellite);
-
-        stateViewModel.IsStreaming = satellite!.IsStreaming;
-        stateViewModel.IsRunning = satellite.IsRunning;
-        stateViewModel.IsPaused = satellite.IsPaused;
-        stateViewModel.MicMuted = satellite.MicMuted;
-        stateViewModel.ServerConnected = !string.IsNullOrEmpty(satellite.ServerId);
+        stateViewModel.IsStreaming = satelliteService.IsStreaming;
+        stateViewModel.IsRunning = satelliteService.IsRunning;
+        stateViewModel.IsPaused = satelliteService.IsPaused;
+        stateViewModel.MicMuted = satelliteService.MicMuted;
+        stateViewModel.ServerConnected = satelliteService.ServerConnected;
 
         RunUIUpdate(() =>
         {
-            ListeningAnimation.IsConnecting = false;
+            ListeningAnimation.IsConnecting = stateViewModel.IsRunning && !stateViewModel.ServerConnected;
             ListeningAnimation.IsConnected = stateViewModel.ServerConnected;
-            ListeningAnimation.IsListening = stateViewModel.IsStreaming; 
+            ListeningAnimation.IsListening = stateViewModel.IsStreaming;
+
+            if (!stateViewModel.IsRunning)
+            {
+                StartStopButton.Text = "Start Satellite";
+                StartStopButton.Background = new SolidColorBrush(Color.FromArgb("#4F46E5"));
+                ListeningAnimation.IsConnecting = false;
+                ListeningAnimation.IsConnected = false;
+                ListeningAnimation.IsListening = false;
+            }
         });
     }
 
-    private async Task OnSatelliteError(Exception exception)
+    private void OnSatelliteError(Exception exception)
     {
-        await StopServerAsync();
-        await RunUIUpdateAsync(async () =>
+        _ = RunUIUpdateAsync(async () =>
         {
             await DisplayAlert(
                 "Satellite Error",
@@ -116,14 +84,9 @@ public partial class MainPage : ContentPage
         });
     }
 
-    private async Task OnWakeWordDetected()
+    private void OnWakeWordDetected()
     {
-        var wav = await assetReader.ReadBytesAsync("ww_detected3.wav");
-        var wavInfo = WavHelper.ReadWavInfo(wav);
-
-        await speakerProvider.StartAsync(wavInfo.SampleRate, wavInfo.BytesPerSample, wavInfo.Channels);
-        await speakerProvider.PlayAsync(wav, null);
-        await speakerProvider.StopAsync();
+        // Wake word sound is now played by the foreground service
     }
 
     private async void OnStartStopClicked(object sender, EventArgs args)
@@ -133,7 +96,7 @@ public partial class MainPage : ContentPage
 
     private async Task ToggleServer()
     {
-        if (stateViewModel.IsRunning)
+        if (satelliteService.IsRunning || stateViewModel.IsRunning)
         {
             await StopServerAsync();
         }
@@ -145,21 +108,30 @@ public partial class MainPage : ContentPage
 
     private async Task StartServerAsync()
     {
-        if (server is null && !await CreateServerAsync())
+        if (!settingsViewModel.IsValid(out var message))
+        {
+            await DisplayAlert(
+                "Failed start satellite",
+                message,
+                "OK");
+            return;
+        }
+
+        if (!await EnsureMicrophonePermissionAsync())
         {
             return;
         }
 
-        if(!await EnsureMicrophonePermissionAsync())
+        if (!await EnsureNotificationPermissionAsync())
         {
             return;
         }
-        
+
         ListeningAnimation.IsConnecting = true;
-        
-        await server!.StartAsync();
+
+        await satelliteService.StartAsync();
         stateViewModel.IsRunning = true;
-        
+
         RunUIUpdate(() =>
         {
             StartStopButton.Text = "Stop Satellite";
@@ -169,22 +141,17 @@ public partial class MainPage : ContentPage
 
     private async Task StopServerAsync()
     {
-        if (server is not null)
+        await satelliteService.StopAsync();
+        stateViewModel.IsRunning = false;
+
+        RunUIUpdate(() =>
         {
-            await server.StopAsync();
-            satellite = null;
-            server = null;
-            stateViewModel.IsRunning = false;
-            
-            RunUIUpdate(() =>
-            {
-                StartStopButton.Text = "Start Satellite";
-                StartStopButton.Background = new SolidColorBrush(Color.FromArgb("#4F46E5"));
-                ListeningAnimation.IsConnecting = false;
-                ListeningAnimation.IsConnected = false;
-                ListeningAnimation.IsListening = false; 
-            });
-        }
+            StartStopButton.Text = "Start Satellite";
+            StartStopButton.Background = new SolidColorBrush(Color.FromArgb("#4F46E5"));
+            ListeningAnimation.IsConnecting = false;
+            ListeningAnimation.IsConnected = false;
+            ListeningAnimation.IsListening = false;
+        });
     }
 
     private async Task<bool> EnsureMicrophonePermissionAsync()
@@ -192,7 +159,9 @@ public partial class MainPage : ContentPage
         var status = await Permissions.CheckStatusAsync<Permissions.Microphone>();
 
         if (status == PermissionStatus.Granted)
+        {
             return true;
+        }
 
         if (Permissions.ShouldShowRationale<Permissions.Microphone>())
         {
@@ -206,12 +175,38 @@ public partial class MainPage : ContentPage
 
         return status == PermissionStatus.Granted;
     }
-    
+
+    private async Task<bool> EnsureNotificationPermissionAsync()
+    {
+#if ANDROID
+        if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Tiramisu)
+        {
+            var status = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
+
+            if (status == PermissionStatus.Granted)
+                return true;
+
+            if (Permissions.ShouldShowRationale<Permissions.PostNotifications>())
+            {
+                await DisplayAlert(
+                    "Notification permission",
+                    "This app needs notification permission to run the satellite in the background.",
+                    "OK");
+            }
+
+            status = await Permissions.RequestAsync<Permissions.PostNotifications>();
+
+            return status == PermissionStatus.Granted;
+        }
+#endif
+        return true;
+    }
+
     private static void RunUIUpdate(Action action)
     {
         MainThread.BeginInvokeOnMainThread(action);
     }
-    
+
     private static Task RunUIUpdateAsync(Func<Task> action)
     {
         return MainThread.InvokeOnMainThreadAsync(action);

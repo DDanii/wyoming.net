@@ -86,8 +86,6 @@ public abstract class SatelliteBase
         }
     }
 
-    public SatelliteSettings Settings { get; }
-
     public virtual async Task<bool> EventFromServerAsync(Event ev)
     {
         try
@@ -214,17 +212,7 @@ public abstract class SatelliteBase
         // Local wakeword detection
         startStage = PipelineStage.ASR;
         restartOnEnd = false;
-
-        if (Settings.Snd.Enabled)
-        {
-            // Play TTS response
-            endStage = PipelineStage.TTS;
-        }
-        else
-        {
-            // No audio output
-            endStage = PipelineStage.Handle;
-        }
+        endStage = PipelineStage.TTS;
 
         var runPipeline = new RunPipeline(startStage, endStage)
         {

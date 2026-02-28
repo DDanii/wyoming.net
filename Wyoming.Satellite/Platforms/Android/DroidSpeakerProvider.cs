@@ -1,4 +1,4 @@
-﻿using System.Threading.Channels;
+using System.Threading.Channels;
 using Android.Media;
 using Wyoming.Net.Core;
 using Wyoming.Net.Core.Audio;
@@ -8,6 +8,7 @@ namespace Wyoming.Net.Satellite;
 
 public sealed class DroidSpeakerProvider : ISpeakerProvider
 {
+    private readonly AudioFocusManager audioFocusManager = new();
     private AudioTrack? track;
     private Channel<byte[]>? playbackChannel;
     
@@ -35,6 +36,8 @@ public sealed class DroidSpeakerProvider : ISpeakerProvider
             return ValueTask.CompletedTask;
         }
 
+        audioFocusManager.RequestTransientFocus();
+
         ChannelOut channelOut = channels == 1 ? ChannelOut.Mono : ChannelOut.Stereo;
         Encoding encoding = GetEncoding(width);
 
@@ -44,15 +47,14 @@ public sealed class DroidSpeakerProvider : ISpeakerProvider
             .SetChannelMask(channelOut)
             .Build();
 
-        var audioAttributes = new AudioAttributes.Builder()
+        var audioAttributesBuilder = new AudioAttributes.Builder()
             .SetUsage(AudioUsageKind.Media)!
-            .SetContentType(AudioContentType.Music)!
-            .Build();
+            .SetContentType(AudioContentType.Speech);
 
         int minBuffer = AudioTrack.GetMinBufferSize(sampleRate, channelOut, encoding);
 
         track = new AudioTrack.Builder()
-            .SetAudioAttributes(audioAttributes!)
+            .SetAudioAttributes(audioAttributesBuilder!.Build()!)
             .SetAudioFormat(audioFormat!)
             .SetBufferSizeInBytes(minBuffer)
             .SetTransferMode(AudioTrackMode.Stream)
@@ -93,6 +95,8 @@ public sealed class DroidSpeakerProvider : ISpeakerProvider
         Channels = null;
         
         playbackChannel = null;
+
+        audioFocusManager.AbandonFocus();
     }
 
     private async Task PlaybackLoop()

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Wyoming.Net.Core.Audio;
 using Wyoming.Net.Satellite.App.Maui.Abstractions;
 using Wyoming.Net.Satellite.App.Maui.ViewModels;
@@ -26,6 +26,8 @@ namespace Wyoming.Net.Satellite.App.Maui
 
             builder.Services.AddSingleton<IAssetReader, AssetReader>();
 
+            builder.Services.AddTransient<MainPage>();
+
             builder.AddPlatformProviders();
 
             return builder;
@@ -42,12 +44,14 @@ namespace Wyoming.Net.Satellite.App.Maui
             builder.Services.AddSingleton<iOSSoundProvider>();
             builder.Services.AddSingleton<ISpeakerProvider>(f => f.GetService<iOSSoundProvider>()!);
             builder.Services.AddSingleton<IMicInputProvider>(f => f.GetService<iOSSoundProvider>()!);
+            builder.Services.AddSingleton<ISatelliteService, InProcessSatelliteService>();
 #endif
             
 #if MACCATALYST
             builder.Services.AddSingleton<MacSoundProvider>();
             builder.Services.AddSingleton<ISpeakerProvider>(f => f.GetService<MacSoundProvider>()!);
             builder.Services.AddSingleton<IMicInputProvider>(f => f.GetService<MacSoundProvider>()!);
+            builder.Services.AddSingleton<ISatelliteService, InProcessSatelliteService>();
 #endif
         }
     }
