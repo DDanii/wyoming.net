@@ -90,23 +90,6 @@ public sealed record VadSettings
     public double? WakeWordTimeout { get; init; } = 5.0;
 }
 
-public sealed record TimerSettings
-{
-    public IReadOnlyList<string>? Started { get; init; }
-
-    public IReadOnlyList<string>? Updated { get; init; }
-
-    public IReadOnlyList<string>? Cancelled { get; init; }
-
-    public IReadOnlyList<string>? Finished { get; init; }
-
-    public string? FinishedWav { get; init; }
-
-    public int FinishedWavPlays { get; init; } = 1;
-
-    public double FinishedWavDelay { get; init; } = 0;
-}
-
 public sealed record SatelliteSettings
 {
     public MicSettings Mic { get; init; } = new();
@@ -116,6 +99,4 @@ public sealed record SatelliteSettings
     public WakeSettings Wake { get; init; } = new();
 
     public SndSettings Snd { get; init; } = new();
-
-    //public TimerSettings Timer { get; init; } = new();
 }

@@ -128,25 +128,35 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     
     private float Predict(ReadOnlySpan<float> samples)
     {
-        if (IsSilence(samples))
+        // if (IsSilence(samples))
+        // {
+        //     silenceFrames = Math.Max(silenceFrames, 0);
+        //
+        //     if(++silenceFrames == 5)
+        //     {
+        //         melBuffer.Clear();
+        //         embeddingBuffer.Clear();
+        //     }
+        //     return 0f;
+        // }
+        //
+        // silenceFrames = 0;
+        //
+        if (!VadIsSpeech(samples))
         {
             silenceFrames = Math.Max(silenceFrames, 0);
-        
+            
             if(++silenceFrames == 5)
             {
                 melBuffer.Clear();
                 embeddingBuffer.Clear();
             }
+            
             return 0f;
         }
 
-        if (!VadIsSpeech(samples))
-        {
-            return 0f;
-        }
-        
         silenceFrames = 0;
-
+        
         // samples -> MelspectrogramModel -> EmbeddingModel -> WakeWordModel
 
         Span<float> melOutputBuffer = stackalloc float[melspectrogramModel.FlattenedOutputSize];
