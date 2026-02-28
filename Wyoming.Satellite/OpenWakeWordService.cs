@@ -128,7 +128,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     
     private float Predict(ReadOnlySpan<float> samples)
     {
-        if (SatelliteSettings.Vad.UseEnergyGate && IsSilence(samples))
+        if ((SatelliteSettings.Vad.UseEnergyGate && IsSilence(samples)) || (webRtcVad is not null && !VadIsSpeech(samples)))
         {
             silenceFrames = Math.Max(silenceFrames, 0);
         
@@ -137,21 +137,6 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
                 melBuffer.Clear();
                 embeddingBuffer.Clear();
             }
-            return 0f;
-        }
-        
-        silenceFrames = 0;
-        
-        if (webRtcVad is not null && !VadIsSpeech(samples))
-        {
-            silenceFrames = Math.Max(silenceFrames, 0);
-            
-            if(++silenceFrames == 5)
-            {
-                melBuffer.Clear();
-                embeddingBuffer.Clear();
-            }
-            
             return 0f;
         }
 
