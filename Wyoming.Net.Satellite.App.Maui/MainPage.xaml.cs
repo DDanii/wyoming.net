@@ -51,17 +51,17 @@ public partial class MainPage : ContentPage
             return false;
         }
 
-        var settings = settingsViewModel.ToSatelliteSettings();
+        settingsViewModel.UpdateSatelliteSettings();
         var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync(assetReader);
 
-        satellite = new WakeWordSatellite(settings, wakeModels, loggerFactory, micProvider, speakerProvider);
+        satellite = new WakeWordSatellite(wakeModels, loggerFactory, micProvider, speakerProvider);
         satellite.StateChanged += OnSatelliteStateChanged;
         satellite.SatelliteError += OnSatelliteError;
         satellite.WakeWordDetected  += OnWakeWordDetected;
 
         var info = new Info(new Core.Events.Satellite()
         {
-            ActiveWakeWords = [settings.Wake.Name!],
+            ActiveWakeWords = [SatelliteSettings.Wake.Name!],
             Attribution = new Attribution
             {
                 Name = "Guilherme Pohlmann da Rosa",

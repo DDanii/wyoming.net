@@ -23,11 +23,9 @@ public abstract class SatelliteBase
     public event Func<Exception, Task>? SatelliteError;
 
     public SatelliteBase(
-        SatelliteSettings settings,
         ILoggerFactory loggerFactory,
         ISpeakerProvider speakerProvider)
     {
-        this.Settings = settings;
         this.speakerProvider = speakerProvider;
         this.loggerFactory = loggerFactory;
         Logger = loggerFactory.CreateLogger(GetType());
@@ -212,19 +210,10 @@ public abstract class SatelliteBase
         string startStage;
         string endStage;
         bool restartOnEnd;
-
-        if (Settings.Wake.Enabled)
-        {
-            // Local wakeword detection
-            startStage = PipelineStage.ASR;
-            restartOnEnd = false;
-        }
-        else
-        {
-            // Remote wakeword detection
-            startStage = PipelineStage.Wake;
-            restartOnEnd = Settings.Vad.Enabled;
-        }
+        
+        // Local wakeword detection
+        startStage = PipelineStage.ASR;
+        restartOnEnd = false;
 
         if (Settings.Snd.Enabled)
         {
@@ -241,7 +230,7 @@ public abstract class SatelliteBase
         {
             //TODO: missing fields?
             RestartOnEnd = restartOnEnd,
-            WakeWordName = Settings.Wake.Name,
+            WakeWordName = SatelliteSettings.Wake.Name,
         };
 
         await WriteToServerAsync(runPipeline.ToEvent());

@@ -16,19 +16,16 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
     public event Func<Task>? WakeWordDetected; 
 
     public WakeWordSatellite(
-        SatelliteSettings settings,
         OpenWakeWordModels wakeModels,
         ILoggerFactory loggerFactory,
         IMicInputProvider micInputProvider,
         ISpeakerProvider speakerProvider
-        ) : base(settings, loggerFactory, speakerProvider)
+        ) : base(loggerFactory, speakerProvider)
     {
         openWakeWordService = new OpenWakeWordService(
             wakeModels, 
             this, 
-            loggerFactory.CreateLogger<OpenWakeWordService>(), 
-            settings.Wake.MaxPatience, 
-            settings.Wake.PredictionThreshold);
+            loggerFactory.CreateLogger<OpenWakeWordService>());
 
         micService = new MicService(
             micInputProvider, 
@@ -62,8 +59,8 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
             var chunk = AudioChunk.FromFloatPcm(
                 buffer,
                 timestamp,
-                micService.Provider.Rate,
-                micService.Provider.Channels
+                MicSettings.Rate,
+                MicSettings.Channels
             );
 
             await WriteToServerAsync(chunk.ToEvent());
@@ -188,9 +185,9 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
             return;
         }
 
-        if (Settings.Wake.RefractorySeconds.HasValue)
+        if (SatelliteSettings.Wake.RefractorySeconds.HasValue)
         {
-            RefractoryTimestamp = Stopwatch.GetTimestamp() + Settings.Wake.RefractorySeconds.Value;
+            RefractoryTimestamp = Stopwatch.GetTimestamp() + SatelliteSettings.Wake.RefractorySeconds.Value;
         }
         else
         {
@@ -201,7 +198,7 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
         
         await WriteToServerAsync(new Detection()
         {
-            Name = Settings.Wake.Name
+            Name = SatelliteSettings.Wake.Name
         }.ToEvent());
 
         await SendRunPipelineAsync();

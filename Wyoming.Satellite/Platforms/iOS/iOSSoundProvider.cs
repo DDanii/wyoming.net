@@ -21,12 +21,6 @@ public sealed class iOSSoundProvider : IMicInputProvider, ISpeakerProvider
         provider.Dispose();
     }
     
-    int IMicInputProvider.Rate => micInputProvider.Rate;
-    
-    int IMicInputProvider.Channels => micInputProvider.Channels;
-
-    int IMicInputProvider.Width => micInputProvider.Width;
-    
     ValueTask IMicInputProvider.StartRecordingAsync()
     {
         return micInputProvider.StartRecordingAsync();

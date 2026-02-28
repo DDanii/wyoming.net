@@ -17,14 +17,6 @@ internal sealed partial class AppleSoundProvider
     private readonly ManualResetEventSlim micDataAvailableEvent = new(false);
     private int readInProgress = 0; 
     
-    int IMicInputProvider.Rate => 16000;
-    
-    int IMicInputProvider.Channels => 1;
-
-    int IMicInputProvider.Width => sizeof(float);
-
-    private IMicInputProvider MicInputProvider => this;
-    
     ValueTask IMicInputProvider.StartRecordingAsync()
     {
         if (inputNode is not null)
@@ -32,7 +24,7 @@ internal sealed partial class AppleSoundProvider
             return ValueTask.CompletedTask;
         }
         
-        SessionManager.StartSession(logger, MicInputProvider.Rate);
+        SessionManager.StartSession(logger, MicSettings.Rate);
 
         engine = new AVAudioEngine();
         inputNode = engine.InputNode;
@@ -54,7 +46,7 @@ internal sealed partial class AppleSoundProvider
             outputNodeFormat.ChannelCount, 
             outputNodeFormat.CommonFormat.ToString());
 
-        if (inputNodeFormat.ChannelCount > MicInputProvider.Channels)
+        if (inputNodeFormat.ChannelCount > MicSettings.Channels)
         {
             Reset();
             throw new NotSupportedException("Only single channel audio inputs are supported");
@@ -150,7 +142,7 @@ internal sealed partial class AppleSoundProvider
         // Posted by Marcin Rybak - Thanks!
         var bytes = MemoryMarshal.CreateSpan(
             ref Unsafe.AddByteOffset(ref Unsafe.NullRef<byte>(), channel0), 
-            (int)buffer.FrameLength * MicInputProvider.Width
+            (int)buffer.FrameLength * MicSettings.Width
             );
         
         return bytes;
@@ -216,10 +208,10 @@ internal sealed partial class AppleSoundProvider
     {
         uint frameLength = EstimateResamplingSize(
             (int)incomingBuffer.FrameLength,
-            MicInputProvider.Width, 
-            MicInputProvider.Channels, 
+            MicSettings.Width, 
+            MicSettings.Channels, 
             (int)incomingBuffer.Format.SampleRate, 
-            MicInputProvider.Rate);
+            MicSettings.Rate);
         
         var outBuffer = new AVAudioPcmBuffer(micOutputFormat, frameLength);
         var provided = false;

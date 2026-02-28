@@ -42,12 +42,7 @@ public partial class SatelliteSettingsViewModel : ObservableObject
             return false;
         }
 
-        if(WakeSettings.Enabled)
-        {
-            return WakeSettings.IsValid(out message);
-        }
-
-        return true;
+        return WakeSettings.IsValid(out message);
     }
 
     public void Save()
@@ -55,14 +50,9 @@ public partial class SatelliteSettingsViewModel : ObservableObject
         File.WriteAllText(GetSettingsFilePath(), JsonSerializer.Serialize(this));
     }
 
-    public SatelliteSettings ToSatelliteSettings()
+    public void UpdateSatelliteSettings()
     {
-        var settings = new SatelliteSettings()
-        {
-            Wake = WakeSettings.ToSatelliteSettings()
-        };
-
-        return settings;
+        SatelliteSettings.Wake.Name = WakeSettings.Model;
     }
 
     public static SatelliteSettingsViewModel Load()

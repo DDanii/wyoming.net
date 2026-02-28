@@ -23,8 +23,7 @@ internal sealed partial class AppleSoundProvider : IMicInputProvider, ISpeakerPr
     public AppleSoundProvider(ILogger logger)
     {
         this.logger = logger;
-        IMicInputProvider mic = this;
-        micOutputFormat = new AVAudioFormat(AVAudioCommonFormat.PCMFloat32, mic.Rate, (uint)mic.Channels, true);
+        micOutputFormat = new AVAudioFormat(AVAudioCommonFormat.PCMFloat32, MicSettings.Rate, MicSettings.Channels, true);
         micRingBuffer = new SpscByteRingBuffer(capacity: 1 << 18);
     }
 

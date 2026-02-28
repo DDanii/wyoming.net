@@ -5,7 +5,6 @@ using System.Threading.Channels;
 using Wyoming.Net.Core;
 using Wyoming.Net.Core.Audio;
 using Wyoming.Net.Core.WebRtc;
-using Wyoming.Net.Core.WebRtc.Vad;
 using Wyoming.Net.Satellite.ML.Models.OpenWakeWord;
 
 namespace Wyoming.Net.Satellite;
@@ -28,7 +27,7 @@ public readonly struct OpenWakeWordModels
 
 public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 {
-    private const int ExpectedSampleSize = 1280;
+    private const int ExpectedSampleSize = MicSettings.SamplesPerChunk;
     private const int SampleWindowSize = 480;
 
     // Input for Embedding Model
@@ -43,14 +42,8 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private readonly SlidingWindowPcmBuffer melBuffer;
     private readonly SlidingWindowPcmBuffer embeddingBuffer;
     private readonly SlidingWindowPcmBuffer rawAudioBuffer = new(ExpectedSampleSize + SampleWindowSize);
-    private readonly int maxPatience;
-    private readonly float predictionThreshold;
     private readonly IWakeWordPredictionHandler predictionHandler;
-    private readonly WebRtcVad vad = new()
-    {
-        SampleRate = 16000,
-        Mode = VadMode.VeryAggressive
-    };
+    private readonly WebRtcVad? webRtcVad;
 
     private readonly Channel<AudioTask<float>> channel;
     
@@ -59,9 +52,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     public OpenWakeWordService(
         OpenWakeWordModels models,
         IWakeWordPredictionHandler predictionHandler,
-        ILogger<OpenWakeWordService> logger,
-        int maxPatience = 15,
-        float predictionThreshold = 0.5f)
+        ILogger<OpenWakeWordService> logger)
         : base(logger, TaskLoopRunnerOptions.RestartOnFail)
     {
         embeddingModel = models.EmbeddingModel;
@@ -71,9 +62,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         embeddingBuffer = new SlidingWindowPcmBuffer(embeddingBufferSize);
         melSpectogramBufferSize = models.EmbeddingModel.FlatShapeSize;
         melBuffer = new SlidingWindowPcmBuffer(melSpectogramBufferSize);
-
-        this.predictionThreshold = predictionThreshold;
-        this.maxPatience = maxPatience;
+        
         this.predictionHandler = predictionHandler;
 
         channel = Channel.CreateBounded<AudioTask<float>>(new BoundedChannelOptions(32)
@@ -83,6 +72,15 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             FullMode = BoundedChannelFullMode.DropOldest,
             AllowSynchronousContinuations = false
         });
+
+        if (SatelliteSettings.Vad.Enabled && SatelliteSettings.Vad.Type.HasFlag(VadSettings.VadType.WebRtc))
+        {
+            webRtcVad = new WebRtcVad()
+            {
+                SampleRate = MicSettings.Rate,
+                Mode = SatelliteSettings.Vad.WebRtcMode
+            };
+        }
     }
 
     public void AppendPcm(ReadOnlySpan<float> samples)
@@ -92,13 +90,15 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             throw new ArgumentException($"Samples must be of size {ExpectedSampleSize}");
         }
 
+        //TODO: move audio processing here (silence + webrtc vad) and avoid adding silence audio tasks
         rawAudioBuffer.Append(samples, SampleWindowSize);
         channel.Writer.TryWrite(new AudioTask<float>(rawAudioBuffer.Span));
     }
 
     protected override async Task LoopAsync()
     {
-        int patience = maxPatience;
+        int patience = SatelliteSettings.Wake.MaxPatience;
+        float predictionThreshold = SatelliteSettings.Wake.PredictionThreshold;
 
         while (!CancellationTokenSource!.IsCancellationRequested)
         {
@@ -120,7 +120,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
             if (patience == 0 && prediction >= predictionThreshold && !CancellationTokenSource.IsCancellationRequested)
             {
-                patience = maxPatience;
+                patience = SatelliteSettings.Wake.MaxPatience;
                 await predictionHandler.OnPredictionAsync();
             }
         }
@@ -128,21 +128,21 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     
     private float Predict(ReadOnlySpan<float> samples)
     {
-        // if (IsSilence(samples))
-        // {
-        //     silenceFrames = Math.Max(silenceFrames, 0);
-        //
-        //     if(++silenceFrames == 5)
-        //     {
-        //         melBuffer.Clear();
-        //         embeddingBuffer.Clear();
-        //     }
-        //     return 0f;
-        // }
-        //
-        // silenceFrames = 0;
-        //
-        if (!VadIsSpeech(samples))
+        if (SatelliteSettings.Vad.UseEnergyGate && IsSilence(samples))
+        {
+            silenceFrames = Math.Max(silenceFrames, 0);
+        
+            if(++silenceFrames == 5)
+            {
+                melBuffer.Clear();
+                embeddingBuffer.Clear();
+            }
+            return 0f;
+        }
+        
+        silenceFrames = 0;
+        
+        if (webRtcVad is not null && !VadIsSpeech(samples))
         {
             silenceFrames = Math.Max(silenceFrames, 0);
             
@@ -192,12 +192,12 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         float zcr = (float)zeroCrossings / samples.Length;
 
         // Low energy = silence; high energy + very high ZCR = noise, not speech
-        if (energy < 0.0008)
+        if (energy < SatelliteSettings.Vad.EnergyGateThreshold)
         {
             return true;
         }
 
-        if (zcr > 0.4f)
+        if (zcr > SatelliteSettings.Vad.EnergyGateZcr)
         {
             return true; // likely noise, not speech
         }
@@ -217,7 +217,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         
         for (int i = 0; i + chunkSize <= pcm.Length; i += chunkSize)
         {
-            if (vad.Process(pcm.Slice(i, chunkSize)))
+            if (webRtcVad!.Process(pcm.Slice(i, chunkSize)))
             {
                 hasSpeech = true;
                 break;
@@ -227,7 +227,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         if (!hasSpeech)
         {
             int remaining = pcm.Length % chunkSize; // 1760 % 480 = 320 (20ms)
-            hasSpeech = vad.Process(pcm.Slice(pcm.Length - remaining, remaining));
+            hasSpeech = webRtcVad!.Process(pcm.Slice(pcm.Length - remaining, remaining));
         }
 
         return hasSpeech;
@@ -290,18 +290,8 @@ sealed class AudioTask<T> : IDisposable
 
     public Memory<T> Buffer => new(chunk, 0, size);
 
-    private void Dispose(bool disposing)
-    {
-        ArrayPool<T>.Shared.Return(chunk);
-
-        if (disposing)
-        {
-            GC.SuppressFinalize(this);
-        }
-    }
-
     public void Dispose()
     {
-        Dispose(true);
+        ArrayPool<T>.Shared.Return(chunk);
     }
 }

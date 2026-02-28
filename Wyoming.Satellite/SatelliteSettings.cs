@@ -1,31 +1,34 @@
-﻿namespace Wyoming.Net.Satellite;
+﻿using Wyoming.Net.Core.WebRtc.Vad;
+
+namespace Wyoming.Net.Satellite;
 
 
 public sealed record MicSettings 
 {
-    public double VolumeMultiplier { get; init; } = 1.0;
+    // public double VolumeMultiplier { get; init; } = 1.0;
+    //
+    // public int AutoGain { get; init; } = 0;
+    //
+    // public int NoiseSuppression { get; init; } = 0;
 
-    public int AutoGain { get; init; } = 0;
+    public const int Rate = 16000;
 
-    public int NoiseSuppression { get; init; } = 0;
+    public const int Width = sizeof(float);
 
-    public int Rate { get; init; } = 16000;
+    public const int Channels = 1;
 
-    public int Width { get; init; } = 2;
+    public const int SamplesPerChunk = 1280;
 
-    public int Channels { get; init; } = 1;
-
-    public int SamplesPerChunk { get; init; } = 1024;
-
-    public bool MuteDuringAwakeWav { get; init; } = true;
-
-    public double SecondsToMuteAfterAwakeWav { get; init; } = 0.5;
-
-    public int? ChannelIndex { get; init; }
-
-    public bool NeedsWebRtc => AutoGain > 0 || NoiseSuppression > 0;
-
-    public bool NeedsProcessing => VolumeMultiplier != 1.0 || NeedsWebRtc;
+    //
+    // public bool MuteDuringAwakeWav { get; init; } = true;
+    //
+    // public double SecondsToMuteAfterAwakeWav { get; init; } = 0.5;
+    //
+    // public int? ChannelIndex { get; init; }
+    //
+    // public bool NeedsWebRtc => AutoGain > 0 || NoiseSuppression > 0;
+    //
+    // public bool NeedsProcessing => VolumeMultiplier != 1.0 || NeedsWebRtc;
 }
 
 public sealed record SndSettings
@@ -36,67 +39,51 @@ public sealed record SndSettings
 
     public string? DoneWav { get; init; }
 
-    public int Rate { get; init; } = 22050;
-
-    public int Width { get; init; } = 2;
-
-    public int Channels { get; init; } = 1;
-
-    public int SamplesPerChunk { get; init; } = 1024;
-
-    public bool DisconnectAfterStop { get; init; } = true;
-
     public bool NeedsProcessing => Enabled && VolumeMultiplier != 1.0;
 
-    public bool Enabled { get; init; } = true;
-}
-
-public sealed record WakeWordAndPipeline
-{
-    public string Name { get; init; } = string.Empty;
-
-    public string? Pipeline { get; init; }
+    public bool Enabled { get; set; } = true;
 }
 
 public sealed record WakeSettings
 {
-    public string? Name { get; init; }
+    public string? Name { get; set; }
 
-    public int Rate { get; init; } = 16000;
+    public int? RefractorySeconds { get; set; } = 5;
 
-    public int Width { get; init; } = 2;
+    public int MaxPatience { get; set; } = 15;
 
-    public int Channels { get; init; } = 1;
-
-    public int? RefractorySeconds { get; init; } = 5;
-
-    public int MaxPatience { get; init; } = 15;
-
-    public float PredictionThreshold { get; init; } = 0.5f;
-
-    public bool Enabled { get; init; }
+    public float PredictionThreshold { get; set; } = 0.5f;
 }
 
 public sealed record VadSettings
 {
-    public bool Enabled { get; init; } = false;
+    [Flags]
+    public enum VadType
+    {
+        WebRtc = 0,
+        Silero = 1 << 0 //TODO: implement
+    }
+    
+    public bool Enabled { get; set; } = false;
 
-    public double Threshold { get; init; } = 0.5;
+    public VadType Type { get; set; } = VadType.WebRtc;
 
-    public int TriggerLevel { get; init; } = 1;
+    public VadMode WebRtcMode { get; set; } = VadMode.VeryAggressive;
 
-    public double BufferSeconds { get; init; } = 2.0;
+    public bool UseEnergyGate { get; set; } = false;
 
-    public double? WakeWordTimeout { get; init; } = 5.0;
+    public float EnergyGateThreshold { get; set; } = 0.0008f;
+
+    public float EnergyGateZcr { get; set; } = 0.4f;
 }
 
 public sealed record SatelliteSettings
 {
-    public MicSettings Mic { get; init; } = new();
+    public static readonly MicSettings Mic = new();
 
-    public VadSettings Vad { get; init; } = new();
+    public static readonly VadSettings Vad = new();
 
-    public WakeSettings Wake { get; init; } = new();
+    public static readonly WakeSettings Wake = new();
 
     public SndSettings Snd { get; init; } = new();
 }

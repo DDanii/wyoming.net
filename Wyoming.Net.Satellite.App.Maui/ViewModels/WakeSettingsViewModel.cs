@@ -11,18 +11,6 @@ public partial class WakeSettingsViewModel : ObservableObject
     string? model;
 
     [ObservableProperty]
-    bool enabled;
-
-    [ObservableProperty]
-    int rate = 16000;
-
-    [ObservableProperty]
-    int width = 2;
-
-    [ObservableProperty]
-    int channels = 1;
-
-    [ObservableProperty]
     int refractorySeconds = 5;
 
     [ObservableProperty]
@@ -35,7 +23,7 @@ public partial class WakeSettingsViewModel : ObservableObject
     {
         message = null;
 
-        if(Enabled && string.IsNullOrEmpty(Model))
+        if(string.IsNullOrEmpty(Model))
         {
             message = "Please enter wake word model";
             return false;  
@@ -46,7 +34,6 @@ public partial class WakeSettingsViewModel : ObservableObject
 
     public async Task<OpenWakeWordModels> GetModelsAsync(IAssetReader assetReader)
     {
-        Asserts.IsTrue(Enabled);
         Asserts.IsNotNull(Model);
 
         var melspectrogramModel = new MelspectrogramModel(await assetReader.ReadBytesAsync("melspectrogram.onnx"));
@@ -60,14 +47,10 @@ public partial class WakeSettingsViewModel : ObservableObject
     {
         return new WakeSettings()
         {
-            Channels = Channels,
-            Enabled = Enabled,
             MaxPatience = MaxPatience,
             PredictionThreshold = PredictionThreshold,
             Name = Model,
-            Rate = Rate,
             RefractorySeconds = RefractorySeconds,
-            Width = Width
         };
     }
 

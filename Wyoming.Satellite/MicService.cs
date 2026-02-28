@@ -1,10 +1,14 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
+using Wyoming.Net.Core;
+using Wyoming.Net.Core.Audio;
 
-namespace Wyoming.Net.Core.Audio;
+namespace Wyoming.Net.Satellite;
 
 public sealed class MicService : TaskLoopRunner
 {
-    public MicService(IMicInputProvider micProvider, IMicOutputHandler micOutputHandler, ILogger<MicService> logger) 
+    public MicService(IMicInputProvider micProvider, 
+        IMicOutputHandler micOutputHandler, 
+        ILogger<MicService> logger) 
         : base(logger, TaskLoopRunnerOptions.LongRunning | TaskLoopRunnerOptions.RestartOnFail)
     {
         Provider = micProvider;
@@ -17,7 +21,7 @@ public sealed class MicService : TaskLoopRunner
 
     protected override async Task LoopAsync()
     {
-        byte[] buffer = new byte[1280 * Provider.Width];
+        byte[] buffer = new byte[MicSettings.SamplesPerChunk * MicSettings.Width];
 
         while(!CancellationTokenSource!.IsCancellationRequested)
         {
