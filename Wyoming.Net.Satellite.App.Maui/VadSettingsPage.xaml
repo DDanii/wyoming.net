@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Wyoming.Net.Satellite.App.Maui.VadSettingsPage"
+             xmlns:viewmodels="clr-namespace:Wyoming.Net.Satellite.App.Maui.ViewModels"
+             x:DataType="viewmodels:VadSettingsViewModel"
+             Title="VAD Settings">
+    <VerticalStackLayout HorizontalOptions="Fill" Padding="20">
+
+        <HorizontalStackLayout>
+            <Label Text="Enabled" VerticalOptions="Center" FontSize="20" Margin="0,10,10,10"/>
+            <Switch IsToggled="{Binding Enabled}" />
+        </HorizontalStackLayout>
+
+        <Label Text="Type" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
+        <Picker Title="Select VAD Type" SelectedItem="{Binding Type}">
+            <Picker.Items>
+                <x:String>WebRtc</x:String>
+                <x:String>Silero - Not Implemented</x:String>
+            </Picker.Items>
+        </Picker>
+
+        <Label Text="WebRTC Mode" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
+        <Picker Title="Select WebRTC Mode" SelectedItem="{Binding WebRtcMode}">
+            <Picker.Items>
+                <x:String>Quality</x:String>
+                <x:String>LowBitrate</x:String>
+                <x:String>Aggressive</x:String>
+                <x:String>VeryAggressive</x:String>
+            </Picker.Items>
+        </Picker>
+
+        <HorizontalStackLayout>
+            <Label Text="Use Energy Gate" VerticalOptions="Center" FontSize="20" Margin="0,10,10,10"/>
+            <Switch IsToggled="{Binding UseEnergyGate}" />
+        </HorizontalStackLayout>
+
+        <Label Text="Energy Gate Threshold" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
+        <Entry Keyboard="Numeric" Text="{Binding EnergyGateThreshold}"></Entry>
+
+        <Label Text="Energy Gate ZCR" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
+        <Entry Keyboard="Numeric" Text="{Binding EnergyGateZcr}"></Entry>
+
+    </VerticalStackLayout>
+</ContentPage>

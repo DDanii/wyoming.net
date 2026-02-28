@@ -1,5 +1,6 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using System.Text.Json;
+using Wyoming.Net.Core.WebRtc.Vad;
 
 namespace Wyoming.Net.Satellite.App.Maui.ViewModels;
 
@@ -7,6 +8,9 @@ public partial class SatelliteSettingsViewModel : ObservableObject
 {
     [ObservableProperty]
     WakeSettingsViewModel wakeSettings = new();
+
+    [ObservableProperty]
+    VadSettingsViewModel vadSettings = new();
 
     [ObservableProperty]
     string? area;
@@ -53,6 +57,21 @@ public partial class SatelliteSettingsViewModel : ObservableObject
     public void UpdateSatelliteSettings()
     {
         SatelliteSettings.Wake.Name = WakeSettings.Model;
+        SatelliteSettings.Vad.Enabled = VadSettings.Enabled;
+        SatelliteSettings.Vad.Type = VadSettings.Type switch
+        {
+            _ => Satellite.VadSettings.VadType.WebRtc
+        };
+        SatelliteSettings.Vad.WebRtcMode = VadSettings.WebRtcMode switch
+        {
+            "Quality" => VadMode.Quality,
+            "LowBitrate" => VadMode.LowBitrate,
+            "Aggressive" => VadMode.Aggressive,
+            _ => VadMode.LowBitrate
+        };
+        SatelliteSettings.Vad.UseEnergyGate = VadSettings.UseEnergyGate;
+        SatelliteSettings.Vad.EnergyGateThreshold = VadSettings.EnergyGateThreshold;
+        SatelliteSettings.Vad.EnergyGateZcr = VadSettings.EnergyGateZcr;
     }
 
     public static SatelliteSettingsViewModel Load()

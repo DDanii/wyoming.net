@@ -34,5 +34,13 @@
         </Tab>
     </FlyoutItem>
 
+    <FlyoutItem Title="VAD Settings">
+        <Tab>
+            <ShellContent
+                Title="VAD Settings"
+                ContentTemplate="{DataTemplate local:VadSettingsPage}"
+                Route="VadSettings" />
+        </Tab>
+    </FlyoutItem>
 
 </Shell>
