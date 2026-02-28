@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
@@ -21,11 +21,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <AndroidLibrary Remove="C:\Users\guilh\.nuget\packages\microsoft.ml.onnxruntime\1.23.2\buildTransitive\net8.0-android31.0\..\..\runtimes\android\native\onnxruntime.aar" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <AndroidLibrary Remove="C:\Users\guilh\.nuget\packages\microsoft.ml.onnxruntime\1.23.2\buildTransitive\net8.0-android31.0\..\..\runtimes\android\native\onnxruntime.aar" />
+	  <AndroidLibrary Remove="$(NuGetPackageRoot)microsoft.ml.onnxruntime/1.23.2/runtimes/android/native/onnxruntime.aar" />
 	</ItemGroup>
 
 </Project>
