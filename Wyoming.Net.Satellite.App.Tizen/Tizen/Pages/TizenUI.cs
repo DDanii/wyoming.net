@@ -21,7 +21,7 @@ internal static class TizenUI
         return label;
     }
 
-    public static TextField CreateInput<TTarget, TData>(TTarget target, Func<TTarget, TData> getter, Action<TTarget, string> setter)
+    public static TextField CreateInput<TTarget, TData>(TTarget target, Func<TTarget, TData> getter, Action<TTarget, string> setter, bool isLastField = false)
     {
         var input = new TextField
         {
@@ -35,6 +35,38 @@ internal static class TizenUI
             Text = getter(target)?.ToString(),
             Focusable = true,
             TextColor = new Color("#E5E7EB")
+        };
+
+        // Configure Next vs Done action button
+        var inputMethod = new InputMethod
+        {
+            ActionButton = isLastField
+                ? InputMethod.ActionButtonTitleType.Done
+                : InputMethod.ActionButtonTitleType.Next
+        };
+        input.InputMethodSettings = inputMethod.OutputMap;
+
+        // Enable auto-show of IME on focus
+        var imContext = input.GetInputMethodContext();
+        imContext.AutoEnableInputPanel(true);
+
+        // Handle Return key from IME to move to next field
+        input.KeyEvent += (s, e) =>
+        {
+            if (e.Key.State == Key.StateType.Down
+                && e.Key.KeyPressedName == "Return")
+            {
+                imContext.Deactivate();
+                imContext.HideInputPanel();
+
+                if (!isLastField && input.DownFocusableView != null)
+                {
+                    FocusManager.Instance.SetCurrentFocusView(input.DownFocusableView);
+                }
+
+                return true; // consumed
+            }
+            return false;
         };
 
         input.FocusGained += (s, e) =>

@@ -8,6 +8,8 @@ namespace Wyoming.Net.Satellite.App.Tz
 {
     public static class Program
     {
+        private static TizenProfiler _profiler;
+
         static void Main(string[] args)
         {
             RemoteLogger.InitSingleton("192.168.1.148", 5005);
@@ -35,6 +37,10 @@ namespace Wyoming.Net.Satellite.App.Tz
 
             if (app.EndsWith(Constants.ServiceAppId))
             {
+                #if DEBUG
+                _profiler = new TizenProfiler(Constants.ServiceAppId, 1000);
+                #endif
+                
                 var service = new BackgroundApp();
                 service.Run(args);
             }

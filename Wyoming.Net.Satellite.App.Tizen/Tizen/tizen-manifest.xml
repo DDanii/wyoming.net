@@ -35,6 +35,7 @@
         <privilege>http://tizen.org/privilege/recorder</privilege>
         <privilege>http://tizen.org/privilege/audio.output</privilege>
         <privilege>http://tizen.org/privilege/appmanager.launch</privilege>
+        <privilege>http://tizen.org/privilege/systemmonitor</privilege>
      </privileges>
     <feature name="http://tizen.org/feature/machine_learning"/>
     <feature name="http://tizen.org/feature/machine_learning.inference"/>

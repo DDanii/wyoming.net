@@ -19,7 +19,7 @@ public class WakeSettingsPage : ContentPage
         var patienceInput = TizenUI.CreateInput(vm, (it) => it.MaxPatience, (it, value) => it.MaxPatience = value.ToIntOrDefault());
 
         var thresholdLabel = TizenUI.CreateLabel("Prediction Threshold");
-        var thresholdInput = TizenUI.CreateInput(vm, (it) => it.PredictionThreshold, (it, value) => it.PredictionThreshold = value.ToFloatOrDefault());
+        var thresholdInput = TizenUI.CreateInput(vm, (it) => it.PredictionThreshold, (it, value) => it.PredictionThreshold = value.ToFloatOrDefault(), true);
 
         modelInput.UpFocusableView = parent;
         modelInput.DownFocusableView = refracInput;

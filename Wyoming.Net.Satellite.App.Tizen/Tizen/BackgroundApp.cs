@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Tizen.Applications;
 using Tizen.Applications.Messages;
 using Tizen.System;
+using Wyoming.Net.Core;
 using Wyoming.Net.Satellite.App.Tz.Platform;
 using Wyoming.Net.Satellite.App.Tz.ViewModels;
 
@@ -13,7 +14,9 @@ public sealed class BackgroundApp : ServiceApplication
 {
     private MessagePort _localPort = new MessagePort(Constants.ServicePortName, false);
 
-    private TizenSpeakerProvider _speakerProvider = new TizenSpeakerProvider();
+    private TizenAudioFocusManager? _audioFocusManager;
+
+    private TizenSpeakerProvider? _speakerProvider;
     
     private WakeWordSatellite? _satellite;
 
@@ -100,17 +103,23 @@ public sealed class BackgroundApp : ServiceApplication
             return;
         }
 
+      
         var settingsViewModel = SatelliteSettingsViewModel.Load();
         settingsViewModel.UpdateSatelliteSettings();
         var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync();
         var loggerFactory = new TizenLoggerFactory();
+        var logger = loggerFactory.CreateLogger(string.Empty);
 
-        _satellite = new WakeWordSatellite(wakeModels, loggerFactory, new TizenMicProvider(loggerFactory.CreateLogger(string.Empty)), _speakerProvider);
+        _audioFocusManager = new TizenAudioFocusManager(logger);
+        _speakerProvider = new TizenSpeakerProvider(_audioFocusManager);
+
+        _satellite = new WakeWordSatellite(wakeModels, loggerFactory, new TizenMicProvider(logger), _speakerProvider);
         _satellite.StateChanged += () => NotifyUiState();
         _satellite.WakeWordDetected += HandleWakeWordDetected;
         _satellite.SatelliteError += NotifyError;
 
         TizenServer.CreateSingleton(_satellite, settingsViewModel, loggerFactory);
+
         await TizenServer.Singleton!.StartAsync();
 
         NotifyUiState(true);
@@ -118,9 +127,11 @@ public sealed class BackgroundApp : ServiceApplication
 
     private async Task HandleWakeWordDetected()
     {
+        Asserts.IsNotNull(_speakerProvider);
+
         var wav = await TizenAssetReader.ReadAssetAsync("ww_detected3.wav");
         var wavInfo = WavHelper.ReadWavInfo(wav);
-        await _speakerProvider.StartAsync(wavInfo.SampleRate, wavInfo.BytesPerSample, wavInfo.Channels);
+        await _speakerProvider!.StartAsync(wavInfo.SampleRate, wavInfo.BytesPerSample, wavInfo.Channels);
         await _speakerProvider.PlayAsync(wav, null);
         await _speakerProvider.StopAsync();
 
@@ -185,6 +196,12 @@ public sealed class BackgroundApp : ServiceApplication
             TizenServer.Singleton = null;
             _satellite = null;
         }
+
+        _speakerProvider?.Dispose();
+        _speakerProvider = null;
+
+        _audioFocusManager?.Dispose();
+        _audioFocusManager = null;
     }
 
     private void SendMessage(Bundle msg)

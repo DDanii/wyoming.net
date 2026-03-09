@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Tizen.Applications;
 using Tizen.Applications.Messages;
 using Wyoming.Net.Core;
@@ -66,24 +67,24 @@ internal sealed class ServiceManager : TaskLoopRunner
         const int maxPatience = 5;
         int pingPatience = 0;
 
-        while(!CancellationTokenSource!.IsCancellationRequested)
+        while (!CancellationTokenSource!.IsCancellationRequested)
         {
-            if(!IsServiceRunning())
+            if (!IsServiceRunning())
             {
-                LaunchBackgrund();
+                LaunchBackground();
             }
-            else
+            else if (_uiLocalPort is not null && _uiLocalPort.Listening)
             {
                 SendCommandToService(Constants.Commands.PingCommand);
-                
-                if(pingEvent.Wait(TimeSpan.FromSeconds(2)))
+
+                if (pingEvent.Wait(TimeSpan.FromSeconds(2)))
                 {
-                   pingPatience = 0;
-                   pingEvent.Reset();
+                    pingPatience = 0;
+                    pingEvent.Reset();
                 }
                 else
                 {
-                    if(pingPatience < maxPatience)
+                    if (pingPatience < maxPatience)
                     {
                         pingPatience++;
 
@@ -94,7 +95,7 @@ internal sealed class ServiceManager : TaskLoopRunner
                     {
                         // Force a relaunch
                         pingPatience = 0;
-                        LaunchBackgrund();                        
+                        LaunchBackground();
                     }
                 }
             }
@@ -108,7 +109,7 @@ internal sealed class ServiceManager : TaskLoopRunner
         return ApplicationHelper.CheckServiceState() == ApplicationRunningContext.AppState.Service;
     }
 
-    private void LaunchBackgrund()
+    private void LaunchBackground()
     {
         AppControl serviceLaunchRequest = new()
         {
@@ -124,6 +125,9 @@ internal sealed class ServiceManager : TaskLoopRunner
         if (result >= AppControlReplyResult.Succeeded)
         {
             InitializeCommunication();
+
+            // TODO: remove this?
+            SendCommandToService(Constants.Commands.StartCommand);
         }
         else
         {
@@ -137,7 +141,7 @@ internal sealed class ServiceManager : TaskLoopRunner
         {
             string eventName = e.Message.GetItem<string>(Constants.Events.EventKey);
 
-            if(eventName == Constants.Events.PongEvent)
+            if (eventName == Constants.Events.PongEvent)
             {
                 pingEvent.Set();
                 return;

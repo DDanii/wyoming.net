@@ -12,14 +12,17 @@ namespace Wyoming.Net.Satellite.App.Tz.Platform;
 
 internal sealed class TizenSpeakerProvider : ISpeakerProvider, IDisposable
 {
+    private readonly TizenAudioFocusManager audioFocusManager;
+
     private AudioPlayback? audioPlayback;
 
     private IntPtr audioPlaybackHandle;
 
     private Channel<byte[]>? playbackChannel;
 
-    public TizenSpeakerProvider()
+    public TizenSpeakerProvider(TizenAudioFocusManager audioFocusManager)
     {
+        this.audioFocusManager = audioFocusManager;
     }
 
     public int? Rate { get; private set; }
@@ -44,6 +47,7 @@ internal sealed class TizenSpeakerProvider : ISpeakerProvider, IDisposable
         {
             if (rate == Rate && width == Width && channels == Channels)
             {
+                audioFocusManager.RequestTransientFocus();
                 InitializePlaybackLoop();
                 audioPlayback.Resume();
                 return ValueTask.CompletedTask;
@@ -54,7 +58,10 @@ internal sealed class TizenSpeakerProvider : ISpeakerProvider, IDisposable
             audioPlayback = null;
         }
 
+        audioFocusManager.RequestTransientFocus();
+
         audioPlayback = new AudioPlayback(rate, ToTizenChannel(channels), ToTizenSampleType(width));
+        audioPlayback.ApplyStreamPolicy(audioFocusManager.Policy);
         audioPlayback.Prepare();
 
         audioPlaybackHandle = (IntPtr)audioPlayback.GetType()
@@ -153,6 +160,8 @@ internal sealed class TizenSpeakerProvider : ISpeakerProvider, IDisposable
         audioPlayback.Pause();
 
         playbackChannel = null;
+
+        audioFocusManager.AbandonFocus();
     }
 
     public void Dispose()

@@ -25,7 +25,7 @@ public class VadSettingsPage : ContentPage
         var energyGateThresholdInput = TizenUI.CreateInput(vm, (it) => it.EnergyGateThreshold, (it, value) => it.EnergyGateThreshold = value.ToFloatOrDefault());
 
         var energyGateZcrLabel = TizenUI.CreateLabel("Energy Gate ZCR");
-        var energyGateZcrInput = TizenUI.CreateInput(vm, (it) => it.EnergyGateZcr, (it, value) => it.EnergyGateZcr = value.ToFloatOrDefault());
+        var energyGateZcrInput = TizenUI.CreateInput(vm, (it) => it.EnergyGateZcr, (it, value) => it.EnergyGateZcr = value.ToFloatOrDefault(), true);
 
         enabledInput.UpFocusableView = parent;
         enabledInput.DownFocusableView = typeInput;
