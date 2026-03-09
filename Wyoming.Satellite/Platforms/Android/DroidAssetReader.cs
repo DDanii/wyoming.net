@@ -28,17 +28,27 @@ public static class DroidAssetReader
         var fileBytes = new List<byte>(Kb512);
         var buffer = ArrayPool<byte>.Shared.Rent(Kb512);
 
-        var file = assetManager!.Open(path, Access.Streaming);
-
-        while (true)
+        try
         {
-            int read = file.ReadAtLeast(buffer, buffer.Length, false);
+            var file = assetManager!.Open(path, Access.Streaming);
 
-            if (read == 0) break;
+            while (true)
+            {
+                int read = file.ReadAtLeast(buffer, buffer.Length, false);
 
-            fileBytes.AddRange(buffer.AsSpan().Slice(0, read));
+                if (read == 0)
+                {
+                    break;
+                }
+
+                fileBytes.AddRange(buffer.AsSpan().Slice(0, read));
+            }
         }
-
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);    
+        }
+        
         return fileBytes.ToArray();
     }
 

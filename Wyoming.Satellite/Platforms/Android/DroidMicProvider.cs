@@ -8,6 +8,7 @@ namespace Wyoming.Net.Satellite;
 public sealed class DroidMicProvider : IMicInputProvider
 {
     private readonly AudioRecord audioRecorder;
+    private static readonly Task<long?> CachedTask = Task.FromResult<long?>(null);
 
     public DroidMicProvider()
     {
@@ -15,11 +16,11 @@ public sealed class DroidMicProvider : IMicInputProvider
         audioRecorder = new AudioRecord(AudioSource.VoiceRecognition, Rate, ChannelIn.Mono, Encoding.PcmFloat, 1280 * Width * 8);
     }
 
-    public int Rate => 16000;
+    public static int Rate => 16000;
 
-    public int Channels => 1;
+    public static int Channels => 1;
 
-    public int Width => sizeof(float);
+    public static int Width => sizeof(float);
 
     public void Dispose()
     {
@@ -28,7 +29,7 @@ public sealed class DroidMicProvider : IMicInputProvider
         audioRecorder.Dispose();
     }
 
-    public async Task<long?> ReadAsync(byte[] buffer, CancellationToken cancellationToken)
+    public Task<long?> ReadAsync(byte[] buffer, CancellationToken cancellationToken)
     {
         int sampleSizeFloat = buffer.Length / Width;
         float[] samples = ArrayPool<float>.Shared.Rent(sampleSizeFloat);
@@ -37,16 +38,18 @@ public sealed class DroidMicProvider : IMicInputProvider
         {
             if(cancellationToken.IsCancellationRequested)
             {
-                return null;
+                return CachedTask;
             }
 
             const int readBlockingMode = 0;
-            int read = await audioRecorder.ReadAsync(samples, 0, sampleSizeFloat, readBlockingMode).WaitAsync(cancellationToken);
+
+            // The ReadAsync version increases CPU usage by a few %
+            int read = audioRecorder.Read(samples, 0, sampleSizeFloat, readBlockingMode);
 
             var bytes = MemoryMarshal.AsBytes(samples.AsSpan().Slice(0, read));
             bytes.CopyTo(buffer);
-            
-            return TryGetTimestamp();
+
+            return CachedTask;
         }
         finally
         {
@@ -76,22 +79,22 @@ public sealed class DroidMicProvider : IMicInputProvider
         audioRecorder.Stop();
     }
     
-    private long? TryGetTimestamp()
-    {
-        var audioTimestamp = new AudioTimestamp();
-
-        if (audioRecorder.GetTimestamp(audioTimestamp, AudioTimebase.Monotonic) == 0)
-        {
-            long framePosition = audioTimestamp.FramePosition; // frames since start
-            //long nanoTime = audioTimestamp.NanoTime;           // ns, monotonic clock
-
-            //long timestampMs = nanoTime / 1_000_000L;
-
-            return Convert.ToInt64(framePosition * 1000.0 / Rate);
-        }
-
-        return null;
-    }
+    // private long? TryGetTimestamp()
+    // {
+    //     var audioTimestamp = new AudioTimestamp();
+    //
+    //     if (audioRecorder.GetTimestamp(audioTimestamp, AudioTimebase.Monotonic) == 0)
+    //     {
+    //         long framePosition = audioTimestamp.FramePosition; // frames since start
+    //         //long nanoTime = audioTimestamp.NanoTime;           // ns, monotonic clock
+    //
+    //         //long timestampMs = nanoTime / 1_000_000L;
+    //
+    //         return Convert.ToInt64(framePosition * 1000.0 / Rate);
+    //     }
+    //
+    //     return null;
+    // }
 
     private static async Task<bool> EnsureMicrophonePermissionAsync()
     {
