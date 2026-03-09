@@ -1,8 +1,11 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Wyoming.Net.Core;
 using Wyoming.Net.Satellite.App.Maui.Abstractions;
+#if ANDROID
+using Wyoming.Net.Satellite.ML.Models.OpenWakeWord.Tflite;
+#else
 using Wyoming.Net.Satellite.ML.Models.OpenWakeWord.Onnx;
-
+#endif
 namespace Wyoming.Net.Satellite.App.Maui.ViewModels;
 
 public partial class WakeSettingsViewModel : ObservableObject
@@ -36,30 +39,33 @@ public partial class WakeSettingsViewModel : ObservableObject
     {
         Asserts.IsNotNull(Model);
 
-        var melspectrogramModel = new MelspectrogramModel(await assetReader.ReadBytesAsync("melspectrogram.onnx"));
-        var embeddingModel = new EmbeddingModel(await assetReader.ReadBytesAsync("embedding_model.onnx"));
+        var embeddingModel = new EmbeddingModel(await assetReader.ReadBytesAsync($"embedding_model{GetModelExtension()}"));
+        var melspectrogramModel = new MelspectrogramModel(await assetReader.ReadBytesAsync($"melspectrogram{GetModelExtension()}"));
+        
         var wakeWordModel = new WakeWordModel(await assetReader.ReadBytesAsync(GetWakeModelFile(Model!)));
 
         return new OpenWakeWordModels(embeddingModel, melspectrogramModel, wakeWordModel);
-    }
-
-    public WakeSettings ToSatelliteSettings()
-    {
-        return new WakeSettings()
-        {
-            MaxPatience = MaxPatience,
-            PredictionThreshold = PredictionThreshold,
-            Name = Model,
-            RefractorySeconds = RefractorySeconds,
-        };
     }
 
     private static string GetWakeModelFile(string model)
     {
         return model switch
         {
-            "alexa" => "alexa_v0.1.onnx",
+            "alexa" => $"alexa_v0.1{GetModelExtension()}",
             _ => throw new NotImplementedException(),
         };
+    }
+
+    private static string GetModelExtension()
+    {
+        #if ANDROID
+        // Note: the android version of melspectrogram is a custom version I made with fixed size inputs
+        // the same used for Tizen.
+        // The reason is that tflite java wrapper implementation does an eager call to AllocateTensors
+        // before we can call resize inputs, which causes the interpreter to fail
+        return ".tflite";
+        #else
+        return ".onnx";
+        #endif
     }
 }
