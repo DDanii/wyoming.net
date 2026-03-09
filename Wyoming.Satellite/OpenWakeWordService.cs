@@ -53,7 +53,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         OpenWakeWordModels models,
         IWakeWordPredictionHandler predictionHandler,
         ILogger<OpenWakeWordService> logger)
-        : base(logger, TaskLoopRunnerOptions.RestartOnFail)
+        : base(logger, TaskLoopRunnerOptions.RestartOnFail | TaskLoopRunnerOptions.LongRunning)
     {
         embeddingModel = models.EmbeddingModel;
         melspectrogramModel = models.MelspectrogramModel;

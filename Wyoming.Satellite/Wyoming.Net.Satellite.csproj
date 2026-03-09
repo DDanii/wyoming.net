@@ -77,5 +77,13 @@
 	<ItemGroup>
 	  <Folder Include="ML\Models\OpenWakeWord\Tizen\" />
 	</ItemGroup>
+	
+	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0-android'">
+	  <PackageReference Include="Xamarin.TensorFlow.Android" Version="1.13.1.16" />
+	  <PackageReference Include="Xamarin.TensorFlow.Lite" Version="2.16.1.8" />
+	  <PackageReference Include="Xamarin.TensorFlow.Lite.Gpu" Version="2.16.1.8" />
+	  <PackageReference Include="Xamarin.TensorFlow.Lite.Gpu.Api" Version="2.16.1.8" />
+	  <PackageReference Include="Xamarin.TensorFlow.Lite.Support.Api" Version="0.5.0.4" />
+	</ItemGroup>
 
 </Project>
