@@ -19,10 +19,10 @@ public partial class VadSettingsViewModel : ObservableObject
     bool useEnergyGate;
 
     [ObservableProperty]
-    float energyGateThreshold = 0.0008f;
+    float energyGateThreshold = 0.0005f;
 
     [ObservableProperty]
-    float energyGateZcr = 0.4f;
+    float energyGateZcr = 0.6f;
 
     public VadSettings ToSatelliteSettings()
     {

@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Threading;
 using Microsoft.Extensions.Logging;
+using Tizen.System;
+using Tizen.TV.System.Sensor;
 
 namespace Wyoming.Net.Satellite.App.Tz.Platform;
 
@@ -14,8 +16,8 @@ internal sealed class TizenProfiler : IDisposable
     private readonly string _app;
 
     private readonly int[] _pids;
-    private readonly Tizen.System.ProcessCpuUsage _processCpu;
-    private readonly Tizen.System.SystemCpuUsage _systemCpu;
+    private readonly ProcessCpuUsage _processCpu;
+    private readonly SystemCpuUsage _systemCpu;
 
     private readonly Stopwatch _clock;
 
@@ -29,6 +31,8 @@ internal sealed class TizenProfiler : IDisposable
 
     // Linux USER_HZ (clock ticks per second)
     private const double TicksPerSecond = 100.0;
+
+    MotionSensor s = new MotionSensor(0);
 
     public TizenProfiler(string app, int intervalMs = 5000)
     {
@@ -45,6 +49,45 @@ internal sealed class TizenProfiler : IDisposable
             TizenLogger.Singleton.LogInformation("CPU COUNT: " + _cpuCount);
             TizenLogger.Singleton.LogInformation("Adv supported: {s}", System.Runtime.Intrinsics.Arm.AdvSimd.IsSupported);
             TizenLogger.Singleton.LogInformation("Vector128 supported: {s}", Vector.IsHardwareAccelerated);
+            TizenLogger.Singleton.LogInformation("Motion supported: {s} - Count: {c}", Tizen.TV.System.Sensor.MotionSensor.IsSupported, MotionSensor.Count);
+
+            
+            s.DataUpdated += (s, args) =>
+            {
+                TizenLogger.Singleton.LogInformation("Motion: {m}", args.Motion);
+            };
+            s.Start();
+           
+            // foreach(var feat in TizenFeatures.All)
+            // {
+            //     bool got = false;
+            //     object? value = null;
+
+            //     if(feat.Type == "String")
+            //     {
+            //         got = Information.TryGetValue<string>(feat.Key, out var str);
+            //         value = str;
+            //     }
+            //     else if(feat.Type == "bool")
+            //     {
+            //         got = Information.TryGetValue<bool>(feat.Key, out bool b);
+            //         value = b;
+            //     }
+            //     else if(feat.Type == "int")
+            //     {
+            //         got = Information.TryGetValue<int>(feat.Key, out int i);
+            //         value = i;
+            //     }
+
+            //     if(got)
+            //     {
+            //         TizenLogger.Singleton.LogInformation("Got feature: {f} - Value: {v}", feat.Key, value?.ToString());
+            //     }
+            //     else
+            //     {
+            //         TizenLogger.Singleton.LogInformation("Failed to get feature: {f}", feat.Key);
+            //     }
+            // }
 
             _clock = Stopwatch.StartNew();
 
@@ -89,26 +132,24 @@ internal sealed class TizenProfiler : IDisposable
                 (nowTicks - _lastTimestamp) / (double)Stopwatch.Frequency;
 
             double cpuUsage = 0;
+            double userCpu = 0;
+            double sysCpu = 0;
 
             if (elapsedSeconds > 0)
             {
-                double cpuSeconds = totalTicks / TicksPerSecond;
-                cpuUsage = cpuSeconds / (elapsedSeconds * _cpuCount) * 100.0;
+                double divisor = elapsedSeconds * _cpuCount * TicksPerSecond / 100.0;
+                cpuUsage = totalTicks / divisor;
+                userCpu = userDelta / divisor;
+                sysCpu = sysDelta / divisor;
             }
 
             _lastUserTicks = userTicks;
             _lastSystemTicks = systemTicks;
             _lastTimestamp = nowTicks;
 
-            // Memory
-            long managedMemory = GC.GetTotalMemory(false);
-
-            // GC stats
-            int gen0 = GC.CollectionCount(0);
-            int gen1 = GC.CollectionCount(1);
-            int gen2 = GC.CollectionCount(2);
-
-            Log(managedMemory, cpuUsage, gen0, gen1, gen2, _app);
+            TizenLogger.Singleton.LogInformation(
+                "[PROFILER][{App}] CPU:{Cpu:F2}% (user:{User:F2}% sys:{Sys:F2}%)",
+                _app, cpuUsage, userCpu, sysCpu);
         }
         catch
         {
@@ -122,15 +163,6 @@ internal sealed class TizenProfiler : IDisposable
             return current - previous;
 
         return (uint.MaxValue - previous) + current;
-    }
-
-    private static void Log(long managed, double cpu, int gen0, int gen1, int gen2, string app)
-    {
-        double managedMb = managed / 1024d / 1024d;
-
-        TizenLogger.Singleton.LogInformation(
-            "[PROFILER][{App}] CPU:{Cpu:F2}% Managed:{ManagedMb:F2}MB G0:{Gen0} G1:{Gen1} G2:{Gen2}",
-            app, cpu, managedMb, gen0, gen1, gen2);
     }
 
     public void Dispose()

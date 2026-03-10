@@ -12,6 +12,8 @@ internal static class Constants
 
     public const string ServicePortName = "wyoming.net.server";
 
+    public const string ProfilerAppId = "com.guilhermepohlmann.wyoming.net.profiler";
+
     public static class Events
     {
         public const string EventKey = "event";

@@ -8,20 +8,9 @@ namespace Wyoming.Net.Satellite.App.Tz
 {
     public static class Program
     {
-        private static TizenProfiler _profiler;
-
         static void Main(string[] args)
         {
             RemoteLogger.InitSingleton("192.168.1.148", 5005);
-            
-            #if DEBUG
-            RemoteLogger.Singleton!.Log($"LightSensor: {Tizen.Sensor.LightSensor.IsSupported}");
-            RemoteLogger.Singleton.Log($"ProximitySensor: {Tizen.Sensor.ProximitySensor.IsSupported}");
-            RemoteLogger.Singleton.Log($"SleepMonitor: {Tizen.Sensor.SleepMonitor.IsSupported}");
-            RemoteLogger.Singleton.Log($"UltravioletSensor: {Tizen.Sensor.UltravioletSensor.IsSupported}");
-            RemoteLogger.Singleton.Log($"FaceDownGestureDetector: {Tizen.Sensor.FaceDownGestureDetector.IsSupported}");
-            RemoteLogger.Singleton.Log($"Magnetometer: {Tizen.Sensor.Magnetometer.IsSupported}");
-            #endif            
 
            var app = string.Empty;
             
@@ -37,12 +26,13 @@ namespace Wyoming.Net.Satellite.App.Tz
 
             if (app.EndsWith(Constants.ServiceAppId))
             {
-                #if DEBUG
-                _profiler = new TizenProfiler(Constants.ServiceAppId, 1000);
-                #endif
-                
                 var service = new BackgroundApp();
                 service.Run(args);
+            }
+            else if (app.EndsWith(Constants.ProfilerAppId))
+            {
+                var profiler = new ProfilerApp();
+                profiler.Run(args);
             }
             else
             {

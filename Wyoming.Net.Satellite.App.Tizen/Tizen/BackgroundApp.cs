@@ -103,7 +103,6 @@ public sealed class BackgroundApp : ServiceApplication
             return;
         }
 
-      
         var settingsViewModel = SatelliteSettingsViewModel.Load();
         settingsViewModel.UpdateSatelliteSettings();
         var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync();
@@ -121,6 +120,10 @@ public sealed class BackgroundApp : ServiceApplication
         TizenServer.CreateSingleton(_satellite, settingsViewModel, loggerFactory);
 
         await TizenServer.Singleton!.StartAsync();
+
+#if DEBUG
+        LaunchProfiler();
+#endif
 
         NotifyUiState(true);
     }
@@ -189,6 +192,10 @@ public sealed class BackgroundApp : ServiceApplication
 
     private async Task StopSatellite()
     {
+#if DEBUG
+        TerminateProfiler();
+#endif
+
         if (TizenServer.Singleton != null)
         {
             await TizenServer.Singleton.StopAsync();
@@ -203,6 +210,34 @@ public sealed class BackgroundApp : ServiceApplication
         _audioFocusManager?.Dispose();
         _audioFocusManager = null;
     }
+
+#if DEBUG
+    private static void LaunchProfiler()
+    {
+        try
+        {
+            var appControl = new AppControl { ApplicationId = Constants.ProfilerAppId };
+            AppControl.SendLaunchRequest(appControl);
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Failed to launch profiler app");
+        }
+    }
+
+    private static void TerminateProfiler()
+    {
+        try
+        {
+            var context = new ApplicationRunningContext(Constants.ProfilerAppId);
+            context.Terminate();
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Failed to terminate profiler app");
+        }
+    }
+#endif
 
     private void SendMessage(Bundle msg)
     {

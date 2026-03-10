@@ -46,8 +46,9 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private readonly WebRtcVad? webRtcVad;
 
     private readonly Channel<AudioTask<float>> channel;
-    
+
     private int silenceFrames = 0;
+    private int speechFrames = 0;
 
     public OpenWakeWordService(
         OpenWakeWordModels models,
@@ -62,7 +63,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         embeddingBuffer = new SlidingWindowPcmBuffer(embeddingBufferSize);
         melSpectogramBufferSize = models.EmbeddingModel.FlatShapeSize;
         melBuffer = new SlidingWindowPcmBuffer(melSpectogramBufferSize);
-        
+
         this.predictionHandler = predictionHandler;
 
         channel = Channel.CreateBounded<AudioTask<float>>(new BoundedChannelOptions(32)
@@ -90,7 +91,31 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             throw new ArgumentException($"Samples must be of size {ExpectedSampleSize}");
         }
 
-        //TODO: move audio processing here (silence + webrtc vad) and avoid adding silence audio tasks
+        bool energySilence = SatelliteSettings.Vad.UseEnergyGate && IsSilence(samples);
+        bool vadSilence = webRtcVad is not null && !VadIsSpeech(samples);
+
+        bool isSilent = (SatelliteSettings.Vad.UseEnergyGate && energySilence)
+            || (webRtcVad is not null && vadSilence);
+
+        if (isSilent)
+        {
+            speechFrames = 0;
+
+            if (++silenceFrames == 5)
+            {
+                melBuffer.Clear();
+                embeddingBuffer.Clear();
+                rawAudioBuffer.Clear();
+            }
+            return;
+        }
+
+        if (++speechFrames >= 2)
+        {
+            silenceFrames = 0;
+            speechFrames = 0;
+        }
+
         rawAudioBuffer.Append(samples, SampleWindowSize);
         channel.Writer.TryWrite(new AudioTask<float>(rawAudioBuffer.Span));
     }
@@ -121,27 +146,15 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             if (patience == 0 && prediction >= predictionThreshold && !CancellationTokenSource.IsCancellationRequested)
             {
                 patience = SatelliteSettings.Wake.MaxPatience;
+                melBuffer.Clear();
+                embeddingBuffer.Clear();
                 await predictionHandler.OnPredictionAsync();
             }
         }
     }
-    
+
     private float Predict(ReadOnlySpan<float> samples)
     {
-        if ((SatelliteSettings.Vad.UseEnergyGate && IsSilence(samples)) || (webRtcVad is not null && !VadIsSpeech(samples)))
-        {
-            silenceFrames = Math.Max(silenceFrames, 0);
-        
-            if(++silenceFrames == 5)
-            {
-                melBuffer.Clear();
-                embeddingBuffer.Clear();
-            }
-            return 0f;
-        }
-
-        silenceFrames = 0;
-        
         // samples -> MelspectrogramModel -> EmbeddingModel -> WakeWordModel
 
         Span<float> melOutputBuffer = stackalloc float[melspectrogramModel.FlattenedOutputSize];
@@ -192,30 +205,26 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
     private bool VadIsSpeech(ReadOnlySpan<float> samples)
     {
+        // We want to find speech on the entire 80ms audio frame
+        // not on an individual 30ms chunk
+
         Span<byte> frames = stackalloc byte[samples.Length * 2];
         AudioOp.FloatToPcm16(samples, frames);
-        
+
         ReadOnlySpan<short> pcm = MemoryMarshal.Cast<byte, short>(frames);
-        
+
         const int chunkSize = 480; // 30ms at 16kHz
-        bool hasSpeech = false;
-        
+
         for (int i = 0; i + chunkSize <= pcm.Length; i += chunkSize)
         {
-            if (webRtcVad!.Process(pcm.Slice(i, chunkSize)))
+            if (!webRtcVad!.Process(pcm.Slice(i, chunkSize)))
             {
-                hasSpeech = true;
-                break;
+                return false;
             }
         }
-        
-        if (!hasSpeech)
-        {
-            int remaining = pcm.Length % chunkSize; // 1760 % 480 = 320 (20ms)
-            hasSpeech = webRtcVad!.Process(pcm.Slice(pcm.Length - remaining, remaining));
-        }
 
-        return hasSpeech;
+        int remaining = pcm.Length % chunkSize; // 1760 % 480 = 320 (20ms)
+        return webRtcVad!.Process(pcm.Slice(pcm.Length - remaining, remaining));
     }
 
     public async ValueTask DisposeAsync()
@@ -273,7 +282,7 @@ sealed class AudioTask<T> : IDisposable
         chunk.CopyTo(this.chunk);
     }
 
-    public Memory<T> Buffer => new(chunk, 0, size);
+    public ReadOnlyMemory<T> Buffer => new(chunk, 0, size);
 
     public void Dispose()
     {

@@ -28,7 +28,15 @@
     <background-category value="iot-communication"/>
   </service-application>
 
-   <privileges> 
+  <service-application appid="com.guilhermepohlmann.wyoming.net.profiler"
+                       exec="Wyoming.Net.Satellite.App.Tizen.dll"
+                       type="dotnet"
+                       nodisplay="true"
+                       api-version="12"
+                       launch_mode="single">
+  </service-application>
+
+      <privileges> 
         <privilege>http://tizen.org/privilege/mediastorage</privilege>  
         <privilege>http://tizen.org/privilege/externalstorage</privilege>
         <privilege>http://tizen.org/privilege/ml.inference</privilege>

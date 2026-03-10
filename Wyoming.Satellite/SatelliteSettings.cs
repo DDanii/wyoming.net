@@ -72,9 +72,9 @@ public sealed record VadSettings
 
     public bool UseEnergyGate { get; set; } = false;
 
-    public float EnergyGateThreshold { get; set; } = 0.0008f;
+    public float EnergyGateThreshold { get; set; } = 0.0005f;
 
-    public float EnergyGateZcr { get; set; } = 0.4f;
+    public float EnergyGateZcr { get; set; } = 0.6f;
 }
 
 public sealed record SatelliteSettings

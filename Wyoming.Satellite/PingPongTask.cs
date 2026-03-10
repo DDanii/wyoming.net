@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Wyoming.Net.Core;
 using Wyoming.Net.Core.Events;
 using Wyoming.Net.Core.Server;
@@ -11,9 +11,9 @@ internal sealed class PingPongTask : TaskLoopRunner, IAsyncDisposable
 
     private const int PingDelaySeconds = 2;
     private const int PongDelaySeconds = 5;
-    
+
     private readonly WyomingStreamWriter writer;
-    private readonly ManualResetEventSlim pongEvent = new(false);
+    private readonly SemaphoreSlim pongSignal = new SemaphoreSlim(0, 1);
 
     public PingPongTask(WyomingStreamWriter writer, ILogger<PingPongTask> logger) : base(logger)
     {
@@ -22,32 +22,32 @@ internal sealed class PingPongTask : TaskLoopRunner, IAsyncDisposable
 
     public void Pong()
     {
-        pongEvent.Set();
+        Release();
     }
 
     protected override async Task LoopAsync()
     {
-        while(true)
+        while (true)
         {
             await Task.Delay(TimeSpan.FromSeconds(PingDelaySeconds));
 
             try
             {
-                if(CancellationTokenSource is null || CancellationTokenSource.IsCancellationRequested)
+                if (CancellationTokenSource is null || CancellationTokenSource.IsCancellationRequested)
                 {
                     break;
                 }
+
                 await writer.WriteEventAsync(CachedPing);
 
-                await Task.Factory.StartNew(pongEvent.Wait).WaitAsync(TimeSpan.FromSeconds(PongDelaySeconds), CancellationTokenSource.Token).ConfigureAwait(false);
-                pongEvent.Reset();
-            }
-            catch(TimeoutException)
-            {
-                pongEvent.Set();
-                pongEvent.Reset();
+                bool received = await pongSignal.WaitAsync(
+                    TimeSpan.FromSeconds(PongDelaySeconds),
+                    CancellationTokenSource.Token);
 
-                logger.LogInformation("Timeout waiting pong from server");
+                if (!received)
+                {
+                    logger.LogInformation("Timeout waiting pong from server");
+                }
             }
             catch (Exception ex)
             {
@@ -60,12 +60,24 @@ internal sealed class PingPongTask : TaskLoopRunner, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
-        pongEvent.Dispose();
+        pongSignal.Dispose();
     }
 
     protected override ValueTask OnStopAsync()
     {
-        pongEvent.Set();
+        Release();
         return base.OnStopAsync();
+    }
+
+    private void Release()
+    {
+        try
+        {
+            pongSignal.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+            // Already signaled; ignore duplicate pong
+        }
     }
 }

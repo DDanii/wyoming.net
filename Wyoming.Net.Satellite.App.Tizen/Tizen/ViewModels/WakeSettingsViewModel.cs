@@ -14,7 +14,7 @@ public sealed class WakeSettingsViewModel
 
     public int MaxPatience { get; set; } = 20;
 
-    public float PredictionThreshold { get; set; } = 0.6f;
+    public float PredictionThreshold { get; set; } = 0.85f;
 
     public bool IsValid(out string? message)
     {
