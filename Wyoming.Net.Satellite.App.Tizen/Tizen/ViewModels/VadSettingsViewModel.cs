@@ -12,9 +12,9 @@ public sealed class VadSettingsViewModel
 
     public bool UseEnergyGate { get; set; } = true;
 
-    public float EnergyGateThreshold { get; set; } = 0.0005f;
+    public float EnergyGateThreshold { get; set; } = 0.0002f;
 
-    public float EnergyGateZcr { get; set; } = 0.6f;
+    public float EnergyGateZcr { get; set; } = 0.5f;
 
     public VadSettings ToSatelliteSettings()
     {

@@ -12,7 +12,7 @@ public sealed class WakeSettingsViewModel
 
     public int RefractorySeconds { get; set; } = 5;
 
-    public int MaxPatience { get; set; } = 20;
+    public int MaxPatience { get; set; } = 2;
 
     public float PredictionThreshold { get; set; } = 0.85f;
 

@@ -27,6 +27,8 @@ public readonly struct OpenWakeWordModels
 
 public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 {
+    private const int Fps = 12;
+
     private const int ExpectedSampleSize = MicSettings.SamplesPerChunk;
     private const int SampleWindowSize = 480;
 
@@ -48,7 +50,6 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private readonly Channel<AudioTask<float>> channel;
 
     private int silenceFrames = 0;
-    private int speechFrames = 0;
 
     public OpenWakeWordService(
         OpenWakeWordModels models,
@@ -97,26 +98,20 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         bool isSilent = (SatelliteSettings.Vad.UseEnergyGate && energySilence)
             || (webRtcVad is not null && vadSilence);
 
+        rawAudioBuffer.Append(samples, SampleWindowSize);
+
         if (isSilent)
         {
-            speechFrames = 0;
-
-            if (++silenceFrames == 5)
+            if (++silenceFrames == Fps * 5) // 5 seconds
             {
                 melBuffer.Clear();
                 embeddingBuffer.Clear();
-                rawAudioBuffer.Clear();
             }
+            
             return;
         }
 
-        if (++speechFrames >= 2)
-        {
-            silenceFrames = 0;
-            speechFrames = 0;
-        }
-
-        rawAudioBuffer.Append(samples, SampleWindowSize);
+        silenceFrames = 0;
         channel.Writer.TryWrite(new AudioTask<float>(rawAudioBuffer.Span));
     }
 
@@ -137,18 +132,22 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
             logger.LogDebug("Prediction: {prediction}", prediction);
 
-            if (patience > 0)
+            if(prediction >= predictionThreshold && !CancellationTokenSource.IsCancellationRequested)
             {
-                patience--;
-                continue;
-            }
+                if(patience > 0)
+                {
+                    patience--;
+                    continue;
+                }
 
-            if (patience == 0 && prediction >= predictionThreshold && !CancellationTokenSource.IsCancellationRequested)
-            {
                 patience = SatelliteSettings.Wake.MaxPatience;
                 melBuffer.Clear();
                 embeddingBuffer.Clear();
                 await predictionHandler.OnPredictionAsync();
+            }
+            else
+            {
+                patience = SatelliteSettings.Wake.MaxPatience;
             }
         }
     }

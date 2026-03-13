@@ -43,10 +43,11 @@ public sealed class RemoteLogger : IDisposable
 
         try
         {
-            string payload = $"[{DateTime.Now:HH:mm:ss}] [{level}] {message}";
-            byte[] bytes = Encoding.UTF8.GetBytes(payload);
+            string payload = message;//$"[{DateTime.Now:HH:mm:ss}] [{level}] {message}";
+            Span<byte> bytes = stackalloc byte[Encoding.UTF8.GetByteCount(payload)];
+            Encoding.UTF8.GetBytes(payload, bytes);
             
-            _udpClient.Send(bytes, bytes.Length, _endPoint);
+            _udpClient.Send(bytes, _endPoint);
         }
         catch
         {

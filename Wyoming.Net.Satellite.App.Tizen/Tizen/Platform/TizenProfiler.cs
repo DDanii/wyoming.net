@@ -52,11 +52,11 @@ internal sealed class TizenProfiler : IDisposable
             TizenLogger.Singleton.LogInformation("Motion supported: {s} - Count: {c}", Tizen.TV.System.Sensor.MotionSensor.IsSupported, MotionSensor.Count);
 
             
-            s.DataUpdated += (s, args) =>
-            {
-                TizenLogger.Singleton.LogInformation("Motion: {m}", args.Motion);
-            };
-            s.Start();
+            // s.DataUpdated += (s, args) =>
+            // {
+            //     TizenLogger.Singleton.LogInformation("Motion: {m}", args.Motion);
+            // };
+            // s.Start();
            
             // foreach(var feat in TizenFeatures.All)
             // {

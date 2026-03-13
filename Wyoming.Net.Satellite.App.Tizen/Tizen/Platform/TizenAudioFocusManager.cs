@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Extensions.Logging;
+using Tizen.Applications;
 using Tizen.Multimedia;
 
 namespace Wyoming.Net.Satellite.App.Tz.Platform;
@@ -23,6 +24,8 @@ internal sealed class TizenAudioFocusManager : IDisposable
     }
 
     public AudioStreamPolicy Policy => streamPolicy;
+
+    public bool HasFocus => hasFocus;
 
     public void RequestTransientFocus()
     {
@@ -66,7 +69,7 @@ internal sealed class TizenAudioFocusManager : IDisposable
     {
         // We only hold transient focus for brief sounds, so we don't need to
         // react to focus loss -- we'll abandon focus when playback completes.
-        logger.LogInformation("Playback focus changed: {options} -> {state}", args.FocusOptions, args.FocusState);
+        logger.LogInformation("Playback focus changed: {options} -> {state} - {extra}", args.FocusOptions, args.FocusState, args.ExtraInfo);
     }
 
     public void Dispose()
