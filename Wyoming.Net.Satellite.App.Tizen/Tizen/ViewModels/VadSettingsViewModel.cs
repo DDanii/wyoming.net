@@ -10,11 +10,9 @@ public sealed class VadSettingsViewModel
 
     public int WebRtcMode { get; set; } = (int)VadMode.VeryAggressive;
 
-    public bool UseEnergyGate { get; set; } = true;
+    public bool UseEnergyGate { get; set; } = false;
 
     public float EnergyGateThreshold { get; set; } = 0.0002f;
-
-    public float EnergyGateZcr { get; set; } = 0.5f;
 
     public VadSettings ToSatelliteSettings()
     {
@@ -25,7 +23,6 @@ public sealed class VadSettingsViewModel
             WebRtcMode = (VadMode)WebRtcMode,
             UseEnergyGate = UseEnergyGate,
             EnergyGateThreshold = EnergyGateThreshold,
-            EnergyGateZcr = EnergyGateZcr,
         };
     }
 }

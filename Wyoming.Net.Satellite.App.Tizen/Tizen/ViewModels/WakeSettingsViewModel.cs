@@ -12,9 +12,11 @@ public sealed class WakeSettingsViewModel
 
     public int RefractorySeconds { get; set; } = 5;
 
-    public int MaxPatience { get; set; } = 2;
+    public int MinSpeechFrames { get; set; } = 2;
 
-    public float PredictionThreshold { get; set; } = 0.85f;
+    public int Patience { get; set; } = 5;
+
+    public float PredictionThreshold { get; set; } = 0.7f;
 
     public bool IsValid(out string? message)
     {
@@ -44,7 +46,8 @@ public sealed class WakeSettingsViewModel
     {
         return new WakeSettings()
         {
-            MaxPatience = MaxPatience,
+            MinSpeechFrames = MinSpeechFrames,
+            Patience = Patience,
             PredictionThreshold = PredictionThreshold,
             Name = Model,
             RefractorySeconds = RefractorySeconds,

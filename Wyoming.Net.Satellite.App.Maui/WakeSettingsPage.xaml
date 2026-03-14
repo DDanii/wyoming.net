@@ -16,8 +16,11 @@
         <Label Text="Refractory Seconds" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
         <Entry Keyboard="Numeric" Text="{Binding RefractorySeconds}"></Entry>
 
-        <Label Text="Max Patience" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
-        <Entry Keyboard="Numeric" Text="{Binding MaxPatience}"></Entry>
+        <Label Text="Min Speech Frames" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
+        <Entry Keyboard="Numeric" Text="{Binding MinSpeechFrames}"></Entry>
+
+        <Label Text="Patience" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
+        <Entry Keyboard="Numeric" Text="{Binding Patience}"></Entry>
 
         <Label Text="Prediction Threshold" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
         <Entry Keyboard="Numeric" Text="{Binding PredictionThreshold}"></Entry>

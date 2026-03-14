@@ -24,9 +24,6 @@ public class VadSettingsPage : ContentPage
         var energyGateThresholdLabel = TizenUI.CreateLabel("Energy Gate Threshold");
         var energyGateThresholdInput = TizenUI.CreateInput(vm, (it) => it.EnergyGateThreshold, (it, value) => it.EnergyGateThreshold = value.ToFloatOrDefault());
 
-        var energyGateZcrLabel = TizenUI.CreateLabel("Energy Gate ZCR");
-        var energyGateZcrInput = TizenUI.CreateInput(vm, (it) => it.EnergyGateZcr, (it, value) => it.EnergyGateZcr = value.ToFloatOrDefault(), true);
-
         enabledInput.UpFocusableView = parent;
         enabledInput.DownFocusableView = typeInput;
 
@@ -40,9 +37,6 @@ public class VadSettingsPage : ContentPage
         useEnergyGateInput.DownFocusableView = energyGateThresholdInput;
 
         energyGateThresholdInput.UpFocusableView = useEnergyGateInput;
-        energyGateThresholdInput.DownFocusableView = energyGateZcrInput;
-
-        energyGateZcrInput.UpFocusableView = energyGateThresholdInput;
 
         var view = new View
         {
@@ -69,9 +63,6 @@ public class VadSettingsPage : ContentPage
         view.Add(useEnergyGateInput);
         view.Add(energyGateThresholdLabel);
         view.Add(energyGateThresholdInput);
-        view.Add(energyGateZcrLabel);
-        view.Add(energyGateZcrInput);
-
         Content = view;
         Focusable = true;
 		FocusGained += (s,args) => FocusManager.Instance.SetCurrentFocusView(enabledInput);

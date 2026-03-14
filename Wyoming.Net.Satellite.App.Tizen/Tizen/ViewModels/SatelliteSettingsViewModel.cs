@@ -53,7 +53,8 @@ public sealed class SatelliteSettingsViewModel
     public void UpdateSatelliteSettings()
     {
         SatelliteSettings.Wake.Name = WakeSettings.Model;
-        SatelliteSettings.Wake.MaxPatience = WakeSettings.MaxPatience;
+        SatelliteSettings.Wake.MinSpeechFrames = WakeSettings.MinSpeechFrames;
+        SatelliteSettings.Wake.Patience = WakeSettings.Patience;
         SatelliteSettings.Wake.PredictionThreshold = WakeSettings.PredictionThreshold;
         SatelliteSettings.Wake.RefractorySeconds = WakeSettings.RefractorySeconds;
 
@@ -62,7 +63,6 @@ public sealed class SatelliteSettingsViewModel
         SatelliteSettings.Vad.WebRtcMode = (VadMode)VadSettings.WebRtcMode;
         SatelliteSettings.Vad.UseEnergyGate = VadSettings.UseEnergyGate;
         SatelliteSettings.Vad.EnergyGateThreshold = VadSettings.EnergyGateThreshold;
-        SatelliteSettings.Vad.EnergyGateZcr = VadSettings.EnergyGateZcr;
     }
 
     public static SatelliteSettingsViewModel Load()

@@ -50,6 +50,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private readonly Channel<AudioTask<float>> channel;
 
     private int silenceFrames = 0;
+    private int warmupFrames = 0;
 
     public OpenWakeWordService(
         OpenWakeWordModels models,
@@ -94,21 +95,32 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
         bool energySilence = SatelliteSettings.Vad.UseEnergyGate && IsSilence(samples);
         bool vadSilence = webRtcVad is not null && !VadIsSpeech(samples);
-
-        bool isSilent = (SatelliteSettings.Vad.UseEnergyGate && energySilence)
-            || (webRtcVad is not null && vadSilence);
+        bool isSilent = energySilence || vadSilence;
 
         rawAudioBuffer.Append(samples, SampleWindowSize);
 
         if (isSilent)
         {
-            if (++silenceFrames == Fps * 5) // 5 seconds
+            if (warmupFrames > 0)
             {
-                melBuffer.Clear();
-                embeddingBuffer.Clear();
+                warmupFrames--;
             }
-            
-            return;
+            else
+            {
+                if (++silenceFrames == Fps * 5) // 5 seconds
+                {
+                    warmupFrames = 0;
+                    melBuffer.Clear();
+                    embeddingBuffer.Clear();
+                }
+
+                return;
+            }
+
+        }
+        else if (warmupFrames == 0)
+        {
+            warmupFrames = Fps * 5;
         }
 
         silenceFrames = 0;
@@ -117,7 +129,8 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
     protected override async Task LoopAsync()
     {
-        int patience = SatelliteSettings.Wake.MaxPatience;
+        int speechFrames = 0;
+        int patienceRemaining = 0;
         float predictionThreshold = SatelliteSettings.Wake.PredictionThreshold;
 
         while (!CancellationTokenSource!.IsCancellationRequested)
@@ -130,24 +143,32 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             using var chunk = await channel.Reader.ReadAsync(CancellationTokenSource!.Token);
             float prediction = Predict(chunk.Buffer.Span);
 
-            logger.LogDebug("Prediction: {prediction}", prediction);
+            logger.LogInformation("Prediction: {prediction}", prediction);
 
-            if(prediction >= predictionThreshold && !CancellationTokenSource.IsCancellationRequested)
+            if (prediction >= predictionThreshold && !CancellationTokenSource.IsCancellationRequested)
             {
-                if(patience > 0)
+                if (patienceRemaining > 0)
                 {
-                    patience--;
+                    logger.LogInformation("Skipping prediction, patience: {p}", patienceRemaining);
                     continue;
                 }
 
-                patience = SatelliteSettings.Wake.MaxPatience;
-                melBuffer.Clear();
-                embeddingBuffer.Clear();
+                speechFrames++;
+
+                if (speechFrames < SatelliteSettings.Wake.MinSpeechFrames)
+                {
+                    continue;
+                }
+
                 await predictionHandler.OnPredictionAsync();
+
+                speechFrames = 0;
+                patienceRemaining = SatelliteSettings.Wake.Patience;
             }
             else
             {
-                patience = SatelliteSettings.Wake.MaxPatience;
+                speechFrames = Math.Max(--speechFrames, 0);
+                patienceRemaining = Math.Max(--patienceRemaining, 0);
             }
         }
     }
@@ -173,33 +194,15 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private static bool IsSilence(ReadOnlySpan<float> samples)
     {
         float energy = 0f;
-        int zeroCrossings = 0;
 
-        for (int i = 1; i < samples.Length; i++)
+        for (int i = 0; i < samples.Length; i++)
         {
             energy += samples[i] * samples[i];
-
-            if ((samples[i] > 0) != (samples[i - 1] > 0))
-            {
-                zeroCrossings++;
-            }
         }
 
         energy /= samples.Length;
-        float zcr = (float)zeroCrossings / samples.Length;
 
-        // Low energy = silence; high energy + very high ZCR = noise, not speech
-        if (energy < SatelliteSettings.Vad.EnergyGateThreshold)
-        {
-            return true;
-        }
-
-        if (zcr > SatelliteSettings.Vad.EnergyGateZcr)
-        {
-            return true; // likely noise, not speech
-        }
-
-        return false;
+        return energy < SatelliteSettings.Vad.EnergyGateThreshold;
     }
 
     private bool VadIsSpeech(ReadOnlySpan<float> samples)

@@ -15,8 +15,11 @@ public class WakeSettingsPage : ContentPage
         var refracLabel = TizenUI.CreateLabel("Refractory Seconds");
         var refracInput = TizenUI.CreateInput(vm, (it) => it.RefractorySeconds, (it, value) => it.RefractorySeconds = value.ToIntOrDefault());
 
-        var patienceLabel = TizenUI.CreateLabel("Max Patience");
-        var patienceInput = TizenUI.CreateInput(vm, (it) => it.MaxPatience, (it, value) => it.MaxPatience = value.ToIntOrDefault());
+        var minSpeechLabel = TizenUI.CreateLabel("Min Speech Frames");
+        var minSpeechInput = TizenUI.CreateInput(vm, (it) => it.MinSpeechFrames, (it, value) => it.MinSpeechFrames = value.ToIntOrDefault());
+
+        var patienceLabel = TizenUI.CreateLabel("Patience");
+        var patienceInput = TizenUI.CreateInput(vm, (it) => it.Patience, (it, value) => it.Patience = value.ToIntOrDefault());
 
         var thresholdLabel = TizenUI.CreateLabel("Prediction Threshold");
         var thresholdInput = TizenUI.CreateInput(vm, (it) => it.PredictionThreshold, (it, value) => it.PredictionThreshold = value.ToFloatOrDefault(), true);
@@ -25,9 +28,12 @@ public class WakeSettingsPage : ContentPage
         modelInput.DownFocusableView = refracInput;
 
         refracInput.UpFocusableView = modelInput;
-        refracInput.DownFocusableView = patienceInput;
+        refracInput.DownFocusableView = minSpeechInput;
 
-        patienceInput.UpFocusableView = refracInput;
+        minSpeechInput.UpFocusableView = refracInput;
+        minSpeechInput.DownFocusableView = patienceInput;
+
+        patienceInput.UpFocusableView = minSpeechInput;
         patienceInput.DownFocusableView = thresholdInput;
 
         thresholdInput.UpFocusableView = patienceInput;
@@ -51,6 +57,8 @@ public class WakeSettingsPage : ContentPage
         view.Add(modelInput);
         view.Add(refracLabel);
         view.Add(refracInput);
+        view.Add(minSpeechLabel);
+        view.Add(minSpeechInput);
         view.Add(patienceLabel);
         view.Add(patienceInput);
         view.Add(thresholdLabel);
