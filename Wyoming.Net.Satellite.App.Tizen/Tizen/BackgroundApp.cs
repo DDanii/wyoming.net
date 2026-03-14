@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Tizen.Applications;
 using Tizen.Applications.Messages;
 using Tizen.System;
+using Tizen.TV.System.Sensor;
 using Wyoming.Net.Core;
 using Wyoming.Net.Satellite.App.Tz.Platform;
 using Wyoming.Net.Satellite.App.Tz.ViewModels;
@@ -27,6 +29,11 @@ public sealed class BackgroundApp : ServiceApplication
 
     private bool _stoppedByMonitor;
 
+    private MotionSensor? _motionSensor;
+    private Timer? _noMotionTimer;
+    private bool _stoppedByMotion;
+    private int _noMotionTimeoutSeconds;
+
     private SatelliteSettingsViewModel _settings = null!;
 
     protected override void OnCreate()
@@ -45,6 +52,8 @@ public sealed class BackgroundApp : ServiceApplication
             _foregroundAppMonitor = new ForegroundAppMonitor(TizenLogger.Singleton);
             _foregroundAppMonitor.ForegroundAppChanged += OnForegroundAppChanged;
             _foregroundAppMonitor.Start(_settings.StateConfiguration.WatcherIntervalSeconds * 1000);
+
+            ConfigureMotionSensor();
         }
         catch (Exception e)
         {
@@ -75,6 +84,7 @@ public sealed class BackgroundApp : ServiceApplication
     {
         try
         {
+            DisposeMotionSensor();
             _foregroundAppMonitor?.Dispose();
             ManagePowerLock(false);
             await StopSatellite();
@@ -149,11 +159,13 @@ public sealed class BackgroundApp : ServiceApplication
 
             if (isUnactive && _satellite != null && _satellite.IsRunning)
             {
+                TizenLogger.Singleton.LogInformation("Stopping satellite: inactive app '{AppId}' is in foreground", appId);
                 _stoppedByMonitor = true;
                 await StopSatellite();
             }
             else if (!isUnactive && _stoppedByMonitor)
             {
+                TizenLogger.Singleton.LogInformation("Starting satellite: inactive app no longer in foreground (now '{AppId}')", appId);
                 _stoppedByMonitor = false;
                 await StartSatellite();
             }
@@ -170,10 +182,88 @@ public sealed class BackgroundApp : ServiceApplication
         {
             _settings = SatelliteSettingsViewModel.Load();
             _unactiveApps = _settings.StateConfiguration.UnactiveApps;
+            ConfigureMotionSensor();
         }
         catch (Exception ex)
         {
             TizenLogger.Singleton.LogError(ex, "Error in ReloadSettings");
+        }
+    }
+
+    private void ConfigureMotionSensor()
+    {
+        try
+        {
+            var enabled = _settings.PowerStateSettings.MotionSensorEnabled;
+            _noMotionTimeoutSeconds = _settings.PowerStateSettings.NoMotionTimeoutSeconds;
+
+            if (enabled && _motionSensor == null)
+            {
+                _motionSensor = new MotionSensor(0);
+                _motionSensor.DataUpdated += OnMotionSensorDataUpdated;
+                _motionSensor.Start();
+            }
+            else if (!enabled && _motionSensor != null)
+            {
+                DisposeMotionSensor();
+            }
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in ConfigureMotionSensor");
+        }
+    }
+
+    private void DisposeMotionSensor()
+    {
+        if (_motionSensor != null)
+        {
+            _motionSensor.DataUpdated -= OnMotionSensorDataUpdated;
+            _motionSensor.Stop();
+            _motionSensor.Dispose();
+            _motionSensor = null;
+        }
+
+        _noMotionTimer?.Dispose();
+        _noMotionTimer = null;
+    }
+
+    private async void OnMotionSensorDataUpdated(object? sender, MotionSensorDataUpdatedEventArgs e)
+    {
+        try
+        {
+            bool motionDetected = e.Motion > 0;
+
+            if (motionDetected)
+            {
+                _noMotionTimer?.Dispose();
+                _noMotionTimer = null;
+
+                if (_stoppedByMotion)
+                {
+                    TizenLogger.Singleton.LogInformation("Starting satellite: motion detected");
+                    _stoppedByMotion = false;
+                    await StartSatellite();
+                }
+            }
+            else
+            {
+                if (_noMotionTimer == null && _satellite?.IsRunning == true)
+                {
+                    _noMotionTimer = new Timer(async _ =>
+                    {
+                        TizenLogger.Singleton.LogInformation("Stopping satellite: no motion detected for {Seconds}s", _noMotionTimeoutSeconds);
+                        _stoppedByMotion = true;
+                        await StopSatellite();
+                        _noMotionTimer?.Dispose();
+                        _noMotionTimer = null;
+                    }, null, _noMotionTimeoutSeconds * 1000, Timeout.Infinite);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in OnMotionSensorDataUpdated");
         }
     }
 
@@ -186,6 +276,7 @@ public sealed class BackgroundApp : ServiceApplication
                 return;
             }
 
+            ReloadSettings();
             var settingsViewModel = _settings;
             settingsViewModel.UpdateSatelliteSettings();
             var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync();
@@ -204,9 +295,9 @@ public sealed class BackgroundApp : ServiceApplication
 
             await TizenServer.Singleton!.StartAsync();
 
-#if DEBUG
-            LaunchProfiler();
-#endif
+// #if DEBUG
+//             LaunchProfiler();
+// #endif
 
             NotifyUiState(true);
         }
@@ -317,9 +408,9 @@ public sealed class BackgroundApp : ServiceApplication
     {
         try
         {
-#if DEBUG
-            TerminateProfiler();
-#endif
+// #if DEBUG
+//             TerminateProfiler();
+// #endif
 
             if (TizenServer.Singleton != null)
             {

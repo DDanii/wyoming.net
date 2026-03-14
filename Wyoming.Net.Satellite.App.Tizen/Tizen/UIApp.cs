@@ -80,17 +80,25 @@ public sealed class UIApp : NUIApplication
             HeightResizePolicy = ResizePolicyType.FillToParent
         };
 
+        var powerStatePage = new PowerStateSettingsPage(satelliteSettingsVm.PowerStateSettings, tabView)
+        {
+            WidthResizePolicy = ResizePolicyType.FillToParent,
+            HeightResizePolicy = ResizePolicyType.FillToParent
+        };
+
         var assistantTab = tabView.AddTab("Assistant", main);
         var satelliteSettingsTab = tabView.AddTab("Satellite Settings", satelliteSettingsPage);
         var wakeSettingsTab = tabView.AddTab("Wake Settings", wakeSettingsPage);
         var vadSettingsTab = tabView.AddTab("VAD Settings", vadSettingsPage);
         var stateConfigTab = tabView.AddTab("App States", stateConfigPage);
+        var powerStateTab = tabView.AddTab("Power States", powerStatePage);
 
         assistantTab.Leave += OnTabLeave;
         satelliteSettingsTab.Leave += OnTabLeave;
         wakeSettingsTab.Leave += OnTabLeave;
         vadSettingsTab.Leave += OnTabLeave;
         stateConfigTab.Leave += OnTabLeave;
+        powerStateTab.Leave += OnTabLeave;
 
         container.Add(tabView);
         Window.Instance.Add(container);

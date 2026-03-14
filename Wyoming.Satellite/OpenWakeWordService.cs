@@ -143,7 +143,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             using var chunk = await channel.Reader.ReadAsync(CancellationTokenSource!.Token);
             float prediction = Predict(chunk.Buffer.Span);
 
-            logger.LogInformation("Prediction: {prediction}", prediction);
+            logger.LogDebug("Prediction: {prediction}", prediction);
 
             if (prediction >= predictionThreshold && !CancellationTokenSource.IsCancellationRequested)
             {
