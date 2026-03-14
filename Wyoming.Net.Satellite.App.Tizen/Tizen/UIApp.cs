@@ -1,4 +1,5 @@
 using System;
+using Tizen.Applications;
 using Tizen.NUI;
 using Tizen.NUI.BaseComponents;
 using Wyoming.Net.Satellite.App.Tz.Components;
@@ -27,6 +28,7 @@ public sealed class UIApp : NUIApplication
 
     protected override async void OnCreate()
     {
+        await ServiceManager.Singleton.StartAsync();
         FocusManager.Instance.FocusIndicator = null;
 
         var container = new View
@@ -72,15 +74,23 @@ public sealed class UIApp : NUIApplication
             HeightResizePolicy = ResizePolicyType.FillToParent
         };
 
+        var stateConfigPage = new StateConfigurationPage(satelliteSettingsVm, tabView, await ApplicationManager.GetInstalledApplicationsAsync())
+        {
+            WidthResizePolicy = ResizePolicyType.FillToParent,
+            HeightResizePolicy = ResizePolicyType.FillToParent
+        };
+
         var assistantTab = tabView.AddTab("Assistant", main);
         var satelliteSettingsTab = tabView.AddTab("Satellite Settings", satelliteSettingsPage);
         var wakeSettingsTab = tabView.AddTab("Wake Settings", wakeSettingsPage);
         var vadSettingsTab = tabView.AddTab("VAD Settings", vadSettingsPage);
+        var stateConfigTab = tabView.AddTab("App States", stateConfigPage);
 
         assistantTab.Leave += OnTabLeave;
         satelliteSettingsTab.Leave += OnTabLeave;
         wakeSettingsTab.Leave += OnTabLeave;
         vadSettingsTab.Leave += OnTabLeave;
+        stateConfigTab.Leave += OnTabLeave;
 
         container.Add(tabView);
         Window.Instance.Add(container);
@@ -94,6 +104,7 @@ public sealed class UIApp : NUIApplication
         void OnTabLeave(object? sender, EventArgs args)
         {
             satelliteSettingsVm.Save();
+            //ServiceManager.Singleton.SendReloadSettings();
         }
     }
 

@@ -11,6 +11,8 @@ public sealed class SatelliteSettingsViewModel
     public WakeSettingsViewModel WakeSettings { get; set; } = new();
 
     public VadSettingsViewModel VadSettings { get; set; } = new();
+
+    public StateConfigurationViewModel StateConfiguration { get; set; } = new();
     
     public string? Area { get; set; } = "Sala";
 

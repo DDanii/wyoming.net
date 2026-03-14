@@ -1,7 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Tizen.Applications;
 using Tizen.Applications.Messages;
 using Wyoming.Net.Core;
@@ -61,20 +61,35 @@ internal sealed class ServiceManager : TaskLoopRunner
         SendCommandToService(Constants.Commands.StopCommand);
     }
 
+    public void SendReloadSettings()
+    {
+        SendCommandToService(Constants.Commands.ReloadSettingsCommand);
+    }
+
     protected override async Task LoopAsync()
     {
         const int defaultWaitTimeSeconds = 5;
         const int maxPatience = 5;
         int pingPatience = 0;
+        Stopwatch watch = new Stopwatch();
 
         while (!CancellationTokenSource!.IsCancellationRequested)
         {
             if (!IsServiceRunning())
             {
-                LaunchBackground();
+                if (!watch.IsRunning || watch.Elapsed.Seconds > defaultWaitTimeSeconds)
+                {
+                    watch.Start();
+                    LaunchBackground();
+                }
             }
             else if (_uiLocalPort is not null && _uiLocalPort.Listening)
             {
+                if (watch.IsRunning)
+                {
+                    watch.Stop();
+                }
+
                 SendCommandToService(Constants.Commands.PingCommand);
 
                 if (pingEvent.Wait(TimeSpan.FromSeconds(2)))

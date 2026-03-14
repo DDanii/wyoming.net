@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Tizen.Applications;
@@ -17,24 +18,45 @@ public sealed class BackgroundApp : ServiceApplication
     private TizenAudioFocusManager? _audioFocusManager;
 
     private TizenSpeakerProvider? _speakerProvider;
-    
+
     private WakeWordSatellite? _satellite;
+
+    private ForegroundAppMonitor? _foregroundAppMonitor;
+
+    private List<string> _unactiveApps = new();
+
+    private bool _stoppedByMonitor;
+
+    private SatelliteSettingsViewModel _settings = null!;
 
     protected override void OnCreate()
     {
-        base.OnCreate();
+        try
+        {
+            base.OnCreate();
 
-        ManagePowerLock(true);
+            ManagePowerLock(true);
 
-        _localPort.MessageReceived += OnMessageReceived;
-        _localPort.Listen();
+            _localPort.MessageReceived += OnMessageReceived;
+            _localPort.Listen();
+
+            _settings = SatelliteSettingsViewModel.Load();
+            _unactiveApps = _settings.StateConfiguration.UnactiveApps;
+            _foregroundAppMonitor = new ForegroundAppMonitor(TizenLogger.Singleton);
+            _foregroundAppMonitor.ForegroundAppChanged += OnForegroundAppChanged;
+            _foregroundAppMonitor.Start(_settings.StateConfiguration.WatcherIntervalSeconds * 1000);
+        }
+        catch (Exception e)
+        {
+            TizenLogger.Singleton.LogError(e, "Error in OnCreate");
+        }
     }
 
     private static void ManagePowerLock(bool acquiring)
     {
         try
         {
-            if(acquiring)
+            if (acquiring)
             {
                 Power.RequestLock(PowerLock.Cpu, 0);
             }
@@ -43,7 +65,7 @@ public sealed class BackgroundApp : ServiceApplication
                 Power.ReleaseLock(PowerLock.Cpu);
             }
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             TizenLogger.Singleton.LogError(ex, "Failed to acquire power lock");
         }
@@ -53,8 +75,13 @@ public sealed class BackgroundApp : ServiceApplication
     {
         try
         {
+            _foregroundAppMonitor?.Dispose();
             ManagePowerLock(false);
             await StopSatellite();
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in OnTerminate");
         }
         finally
         {
@@ -64,151 +91,254 @@ public sealed class BackgroundApp : ServiceApplication
 
     protected override void OnAppControlReceived(AppControlReceivedEventArgs e)
     {
-        ReceivedAppControl receivedAppControl = e.ReceivedAppControl;
-
-        if (receivedAppControl.IsReplyRequest)
+        try
         {
-            AppControl replyRequest = new();
-            receivedAppControl.ReplyToLaunchRequest(replyRequest, AppControlReplyResult.Succeeded);
-        }
+            ReceivedAppControl receivedAppControl = e.ReceivedAppControl;
 
-        base.OnAppControlReceived(e);
+            if (receivedAppControl.IsReplyRequest)
+            {
+                AppControl replyRequest = new();
+                receivedAppControl.ReplyToLaunchRequest(replyRequest, AppControlReplyResult.Succeeded);
+            }
+
+            base.OnAppControlReceived(e);
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in OnAppControlReceived");
+        }
     }
 
     private async void OnMessageReceived(object? sender, MessageReceivedEventArgs args)
     {
-        var command = args.Message.GetItem<string>(Constants.Commands.CommandKey);
-
-        switch (command)
+        try
         {
-            case Constants.Commands.StartCommand:
-                await StartSatellite();
-                break;
-            case Constants.Commands.StopCommand:
+            var command = args.Message.GetItem<string>(Constants.Commands.CommandKey);
+
+            switch (command)
+            {
+                case Constants.Commands.StartCommand:
+                    _stoppedByMonitor = false;
+                    await StartSatellite();
+                    break;
+                case Constants.Commands.StopCommand:
+                    await StopSatellite();
+                    break;
+                case Constants.Commands.GetStatusCommand:
+                    NotifyUiState();
+                    break;
+                case Constants.Commands.PingCommand:
+                    ReplyToPing();
+                    break;
+                case Constants.Commands.ReloadSettingsCommand:
+                    ReloadSettings();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in OnMessageReceived");
+        }
+    }
+
+    private async void OnForegroundAppChanged(string appId)
+    {
+        try
+        {
+            bool isUnactive = _unactiveApps.Contains(appId);
+
+            if (isUnactive && _satellite != null && _satellite.IsRunning)
+            {
+                _stoppedByMonitor = true;
                 await StopSatellite();
-                break;
-            case Constants.Commands.GetStatusCommand:
-                NotifyUiState();
-                break;
-            case Constants.Commands.PingCommand:
-                ReplyToPing();
-                break;
+            }
+            else if (!isUnactive && _stoppedByMonitor)
+            {
+                _stoppedByMonitor = false;
+                await StartSatellite();
+            }
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in OnForegroundAppChanged");
+        }
+    }
+
+    private void ReloadSettings()
+    {
+        try
+        {
+            _settings = SatelliteSettingsViewModel.Load();
+            _unactiveApps = _settings.StateConfiguration.UnactiveApps;
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in ReloadSettings");
         }
     }
 
     private async Task StartSatellite()
     {
-        if (_satellite != null && _satellite.IsRunning)
+        try
         {
-            return;
-        }
+            if (_satellite != null && _satellite.IsRunning)
+            {
+                return;
+            }
 
-        var settingsViewModel = SatelliteSettingsViewModel.Load();
-        settingsViewModel.UpdateSatelliteSettings();
-        var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync();
-        var loggerFactory = new TizenLoggerFactory();
-        var logger = loggerFactory.CreateLogger(string.Empty);
+            var settingsViewModel = _settings;
+            settingsViewModel.UpdateSatelliteSettings();
+            var wakeModels = await settingsViewModel.WakeSettings.GetModelsAsync();
+            var loggerFactory = new TizenLoggerFactory();
+            var logger = loggerFactory.CreateLogger(string.Empty);
 
-        _audioFocusManager = new TizenAudioFocusManager(logger);
-        _speakerProvider = new TizenSpeakerProvider(_audioFocusManager);
+            _audioFocusManager = new TizenAudioFocusManager(logger);
+            _speakerProvider = new TizenSpeakerProvider(_audioFocusManager);
 
-        _satellite = new WakeWordSatellite(wakeModels, loggerFactory, new TizenMicProvider(logger), _speakerProvider);
-        _satellite.StateChanged += () => NotifyUiState();
-        _satellite.WakeWordDetected += HandleWakeWordDetected;
-        _satellite.SatelliteError += NotifyError;
+            _satellite = new WakeWordSatellite(wakeModels, loggerFactory, new TizenMicProvider(logger), _speakerProvider);
+            _satellite.StateChanged += () => NotifyUiState();
+            _satellite.WakeWordDetected += HandleWakeWordDetected;
+            _satellite.SatelliteError += NotifyError;
 
-        TizenServer.CreateSingleton(_satellite, settingsViewModel, loggerFactory);
+            TizenServer.CreateSingleton(_satellite, settingsViewModel, loggerFactory);
 
-        await TizenServer.Singleton!.StartAsync();
+            await TizenServer.Singleton!.StartAsync();
 
 #if DEBUG
-        LaunchProfiler();
+            LaunchProfiler();
 #endif
 
-        NotifyUiState(true);
+            NotifyUiState(true);
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in StartSatellite");
+        }
     }
 
     private async Task HandleWakeWordDetected()
     {
-        Asserts.IsNotNull(_speakerProvider);
+        try
+        {
+            Asserts.IsNotNull(_speakerProvider);
 
-        var wav = await TizenAssetReader.ReadAssetAsync("ww_detected3.wav");
-        var wavInfo = WavHelper.ReadWavInfo(wav);
-        await _speakerProvider!.StartAsync(wavInfo.SampleRate, wavInfo.BytesPerSample, wavInfo.Channels);
-        await _speakerProvider.PlayAsync(wav, null);
-        await _speakerProvider.StopAsync();
+            var wav = await TizenAssetReader.ReadAssetAsync("ww_detected3.wav");
+            var wavInfo = WavHelper.ReadWavInfo(wav);
+            await _speakerProvider!.StartAsync(wavInfo.SampleRate, wavInfo.BytesPerSample, wavInfo.Channels);
+            await _speakerProvider.PlayAsync(wav, null);
+            await _speakerProvider.StopAsync();
 
-        SendWakeWordDetected();
+            SendWakeWordDetected();
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in HandleWakeWordDetected");
+        }
     }
 
     private void NotifyUiState(bool isConnecting = false)
     {
-        if (_satellite == null || ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
+        try
         {
-            return;
+            if (_satellite == null || ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
+            {
+                return;
+            }
+
+            Bundle msg = new();
+            msg.AddItem(Constants.Events.EventKey, Constants.Events.StateChangedEvent);
+            msg.AddItem("isRunning", _satellite.IsRunning.ToString());
+            msg.AddItem("isStreaming", _satellite.IsStreaming.ToString());
+            msg.AddItem("isConnected", (!string.IsNullOrEmpty(_satellite.ServerId)).ToString());
+            msg.AddItem("isConnecting", isConnecting ? bool.TrueString : bool.FalseString);
+
+            SendMessage(msg);
         }
-
-        Bundle msg = new();
-        msg.AddItem(Constants.Events.EventKey, Constants.Events.StateChangedEvent);
-        msg.AddItem("isRunning", _satellite.IsRunning.ToString());
-        msg.AddItem("isStreaming", _satellite.IsStreaming.ToString());
-        msg.AddItem("isConnected", (!string.IsNullOrEmpty(_satellite.ServerId)).ToString());
-        msg.AddItem("isConnecting", isConnecting ? bool.TrueString : bool.FalseString);
-
-        SendMessage(msg);
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in NotifyUiState");
+        }
     }
 
     private Task NotifyError(Exception? ex)
     {
-        if (_satellite == null || ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
+        try
         {
-            return Task.CompletedTask;
+            if (_satellite == null || ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
+            {
+                return Task.CompletedTask;
+            }
+
+            Bundle msg = new();
+            msg.AddItem(Constants.Events.EventKey, Constants.Events.ErrorEvent);
+            msg.AddItem("errorDetails", ex?.ToString());
+
+            SendMessage(msg);
         }
-
-        Bundle msg = new();
-        msg.AddItem(Constants.Events.EventKey, Constants.Events.ErrorEvent);
-        msg.AddItem("errorDetails", ex?.ToString());
-
-        SendMessage(msg);
+        catch (Exception e)
+        {
+            TizenLogger.Singleton.LogError(e, "Error in NotifyError");
+        }
 
         return Task.CompletedTask;
     }
 
     private void SendWakeWordDetected()
     {
-        Bundle msg = new();
-        msg.AddItem(Constants.Events.EventKey, Constants.Events.WakeWordDetectedEvent);
+        try
+        {
+            Bundle msg = new();
+            msg.AddItem(Constants.Events.EventKey, Constants.Events.WakeWordDetectedEvent);
 
-        SendMessage(msg);
+            SendMessage(msg);
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in SendWakeWordDetected");
+        }
     }
 
     private void ReplyToPing()
     {
-        Bundle msg = new();
-        msg.AddItem(Constants.Events.EventKey, Constants.Events.PongEvent);
+        try
+        {
+            Bundle msg = new();
+            msg.AddItem(Constants.Events.EventKey, Constants.Events.PongEvent);
 
-        SendMessage(msg);
+            SendMessage(msg);
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in ReplyToPing");
+        }
     }
 
     private async Task StopSatellite()
     {
+        try
+        {
 #if DEBUG
-        TerminateProfiler();
+            TerminateProfiler();
 #endif
 
-        if (TizenServer.Singleton != null)
-        {
-            await TizenServer.Singleton.StopAsync();
-            NotifyUiState();
-            TizenServer.Singleton = null;
-            _satellite = null;
+            if (TizenServer.Singleton != null)
+            {
+                await TizenServer.Singleton.StopAsync();
+                NotifyUiState();
+                TizenServer.Singleton = null;
+                _satellite = null;
+            }
+
+            _speakerProvider?.Dispose();
+            _speakerProvider = null;
+
+            _audioFocusManager?.Dispose();
+            _audioFocusManager = null;
         }
-
-        _speakerProvider?.Dispose();
-        _speakerProvider = null;
-
-        _audioFocusManager?.Dispose();
-        _audioFocusManager = null;
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in StopSatellite");
+        }
     }
 
 #if DEBUG
@@ -241,11 +371,11 @@ public sealed class BackgroundApp : ServiceApplication
 
     private void SendMessage(Bundle msg)
     {
-        if(ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
+        if (ApplicationHelper.CheckUiState() != ApplicationRunningContext.AppState.Foreground)
         {
             return;
         }
-        
+
         try
         {
             _localPort.Send(msg, Constants.UiAppId, Constants.UiPortName);
