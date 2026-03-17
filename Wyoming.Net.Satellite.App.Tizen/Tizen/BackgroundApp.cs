@@ -9,6 +9,7 @@ using Tizen.System;
 using Tizen.TV.System.Sensor;
 using Wyoming.Net.Core;
 using Wyoming.Net.Satellite.App.Tz.Platform;
+using Wyoming.Net.Satellite.App.Tz.Platform.Interop;
 using Wyoming.Net.Satellite.App.Tz.ViewModels;
 
 namespace Wyoming.Net.Satellite.App.Tz;
@@ -236,34 +237,57 @@ public sealed class BackgroundApp : ServiceApplication
 
             if (motionDetected)
             {
-                _noMotionTimer?.Dispose();
-                _noMotionTimer = null;
-
-                if (_stoppedByMotion)
-                {
-                    TizenLogger.Singleton.LogInformation("Starting satellite: motion detected");
-                    _stoppedByMotion = false;
-                    await StartSatellite();
-                }
+                await OnMotionDetected();
             }
             else
             {
-                if (_noMotionTimer == null && _satellite?.IsRunning == true)
-                {
-                    _noMotionTimer = new Timer(async _ =>
-                    {
-                        TizenLogger.Singleton.LogInformation("Stopping satellite: no motion detected for {Seconds}s", _noMotionTimeoutSeconds);
-                        _stoppedByMotion = true;
-                        await StopSatellite();
-                        _noMotionTimer?.Dispose();
-                        _noMotionTimer = null;
-                    }, null, _noMotionTimeoutSeconds * 1000, Timeout.Infinite);
-                }
+                OnNoMotion();
             }
         }
         catch (Exception ex)
         {
             TizenLogger.Singleton.LogError(ex, "Error in OnMotionSensorDataUpdated");
+        }
+    }
+
+    private void OnNoMotion()
+    {
+        if (_noMotionTimer == null && _satellite?.IsRunning == true)
+        {
+            _noMotionTimer = new Timer(async _ =>
+            {
+                TizenLogger.Singleton.LogInformation("Stopping satellite: no motion detected for {Seconds}s", _noMotionTimeoutSeconds);
+
+                if (_settings.PowerStateSettings.TurnOffScreen)
+                {
+                    NativeDisplay.TurnOffScreen();
+                }
+
+                _stoppedByMotion = true;
+                await StopSatellite();
+                _noMotionTimer?.Dispose();
+                _noMotionTimer = null;
+
+            }, null, _noMotionTimeoutSeconds * 1000, Timeout.Infinite);
+        }
+    }
+
+    private async Task OnMotionDetected()
+    {
+        _noMotionTimer?.Dispose();
+        _noMotionTimer = null;
+
+        if (_stoppedByMotion)
+        {
+            TizenLogger.Singleton.LogInformation("Starting satellite: motion detected");
+
+            if (_settings.PowerStateSettings.TurnOffScreen)
+            {
+                NativeDisplay.TurnOnScreen();
+            }
+            _stoppedByMotion = false;
+
+            await StartSatellite();
         }
     }
 

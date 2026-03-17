@@ -56,14 +56,21 @@ public class PowerStateSettingsPage : ContentPage
         var enabledInput = TizenUI.CreateInput(vm, (it) => it.MotionSensorEnabled, (it, value) => it.MotionSensorEnabled = value.ToBoolOrDefault());
         enabledInput.UpFocusableView = parent;
 
+        var turnOffScreenLabel = TizenUI.CreateLabel("Turn Off Screen on No Motion");
+        var turnOffScreenInput = TizenUI.CreateInput(vm, (it) => it.TurnOffScreen, (it, value) => it.TurnOffScreen = value.ToBoolOrDefault());
+
         var timeoutLabel = TizenUI.CreateLabel("No Motion Timeout (seconds)");
         var timeoutInput = TizenUI.CreateInput(vm, (it) => it.NoMotionTimeoutSeconds, (it, value) => it.NoMotionTimeoutSeconds = value.ToIntOrDefault(), isLastField: true);
 
-        enabledInput.DownFocusableView = timeoutInput;
-        timeoutInput.UpFocusableView = enabledInput;
+        enabledInput.DownFocusableView = turnOffScreenInput;
+        turnOffScreenInput.UpFocusableView = enabledInput;
+        turnOffScreenInput.DownFocusableView = timeoutInput;
+        timeoutInput.UpFocusableView = turnOffScreenInput;
 
         scrollable.Add(enabledLabel);
         scrollable.Add(enabledInput);
+        scrollable.Add(turnOffScreenLabel);
+        scrollable.Add(turnOffScreenInput);
         scrollable.Add(timeoutLabel);
         scrollable.Add(timeoutInput);
 

@@ -4,5 +4,7 @@ public sealed class PowerStateSettingsViewModel
 {
     public bool MotionSensorEnabled { get; set; } = Tizen.TV.System.Sensor.MotionSensor.IsSupported;
 
-    public int NoMotionTimeoutSeconds { get; set; } = 60;
+    public bool TurnOffScreen { get; set; } = true;
+
+    public int NoMotionTimeoutSeconds { get; set; } = 300;
 }
