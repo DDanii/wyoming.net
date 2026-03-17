@@ -10,7 +10,7 @@ public class VadSettingsPage : ContentPage
     public VadSettingsPage(VadSettingsViewModel vm, View parent)
     {
         var enabledLabel = TizenUI.CreateLabel("Enabled");
-        var enabledInput = TizenUI.CreateInput(vm, (it) => it.Enabled, (it, value) => it.Enabled = value.ToBoolOrDefault());
+        var enabledInput = TizenUI.CreateToggle(vm, (it) => it.Enabled, (it, value) => it.Enabled = value);
 
         var typeLabel = TizenUI.CreateLabel("Type (0=WebRtc)");
         var typeInput = TizenUI.CreateInput(vm, (it) => it.Type, (it, value) => it.Type = value.ToIntOrDefault());
@@ -19,7 +19,7 @@ public class VadSettingsPage : ContentPage
         var webRtcModeInput = TizenUI.CreateInput(vm, (it) => it.WebRtcMode, (it, value) => it.WebRtcMode = value.ToIntOrDefault());
 
         var useEnergyGateLabel = TizenUI.CreateLabel("Use Energy Gate");
-        var useEnergyGateInput = TizenUI.CreateInput(vm, (it) => it.UseEnergyGate, (it, value) => it.UseEnergyGate = value.ToBoolOrDefault());
+        var useEnergyGateInput = TizenUI.CreateToggle(vm, (it) => it.UseEnergyGate, (it, value) => it.UseEnergyGate = value);
 
         var energyGateThresholdLabel = TizenUI.CreateLabel("Energy Gate Threshold");
         var energyGateThresholdInput = TizenUI.CreateInput(vm, (it) => it.EnergyGateThreshold, (it, value) => it.EnergyGateThreshold = value.ToFloatOrDefault());
