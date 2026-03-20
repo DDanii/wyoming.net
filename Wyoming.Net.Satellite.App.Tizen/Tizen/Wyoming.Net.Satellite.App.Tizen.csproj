@@ -34,4 +34,8 @@
   <ItemGroup>
     <Content Include="res\**\*.*" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tizen.NET.TV" Version="6.6.0.5599517" />
+  </ItemGroup>
 </Project>

@@ -12,6 +12,8 @@ internal static class Constants
 
     public const string ServicePortName = "wyoming.net.server";
 
+    public const string ProfilerAppId = "com.guilhermepohlmann.wyoming.net.profiler";
+
     public static class Events
     {
         public const string EventKey = "event";
@@ -36,5 +38,7 @@ internal static class Constants
           public const string GetStatusCommand = "GET_STATUS";
 
           public const string PingCommand = "PING";
+
+          public const string ReloadSettingsCommand = "RELOAD_SETTINGS";
     }
 }

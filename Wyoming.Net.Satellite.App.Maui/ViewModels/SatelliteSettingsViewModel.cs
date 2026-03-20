@@ -57,6 +57,11 @@ public partial class SatelliteSettingsViewModel : ObservableObject
     public void UpdateSatelliteSettings()
     {
         SatelliteSettings.Wake.Name = WakeSettings.Model;
+        SatelliteSettings.Wake.MinSpeechFrames = WakeSettings.MinSpeechFrames;
+        SatelliteSettings.Wake.Patience = WakeSettings.Patience;
+        SatelliteSettings.Wake.PredictionThreshold = WakeSettings.PredictionThreshold;
+        SatelliteSettings.Wake.RefractorySeconds = WakeSettings.RefractorySeconds;
+
         SatelliteSettings.Vad.Enabled = VadSettings.Enabled;
         SatelliteSettings.Vad.Type = VadSettings.Type switch
         {
@@ -71,7 +76,6 @@ public partial class SatelliteSettingsViewModel : ObservableObject
         };
         SatelliteSettings.Vad.UseEnergyGate = VadSettings.UseEnergyGate;
         SatelliteSettings.Vad.EnergyGateThreshold = VadSettings.EnergyGateThreshold;
-        SatelliteSettings.Vad.EnergyGateZcr = VadSettings.EnergyGateZcr;
     }
 
     public static SatelliteSettingsViewModel Load()

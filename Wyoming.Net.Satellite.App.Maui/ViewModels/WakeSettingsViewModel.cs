@@ -17,7 +17,10 @@ public partial class WakeSettingsViewModel : ObservableObject
     int refractorySeconds = 5;
 
     [ObservableProperty]
-    int maxPatience = 20;
+    int minSpeechFrames = 2;
+
+    [ObservableProperty]
+    int patience = 5;
 
     [ObservableProperty]
     float predictionThreshold = 0.5f;

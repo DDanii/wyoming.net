@@ -11,11 +11,9 @@ internal static class TizenServer
 
     public static bool CreateSingleton(WakeWordSatellite satellite, SatelliteSettingsViewModel settingsViewModel, ILoggerFactory loggerFactory)
     {
-        var settings = settingsViewModel.ToSatelliteSettings();
-
         var info = new Info(new Core.Events.Satellite()
         {
-            ActiveWakeWords = new string[] { settings.Wake.Name! },
+            ActiveWakeWords = new string[] { SatelliteSettings.Wake.Name! },
             Attribution = new Attribution
             {
                 Name = "Guilherme Pohlmann da Rosa",

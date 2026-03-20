@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Tizen.Applications;
@@ -20,6 +21,21 @@ internal static class ApplicationHelper
         return CheckAppState(Constants.ServiceAppId);
     }
 
+    public static ApplicationRunningContext.AppState KillService()
+    {
+        try
+        {
+            using var context = new ApplicationRunningContext(Constants.ServiceAppId);
+            ApplicationManager.TerminateBackgroundApplication(context);
+
+            return context.State;
+        }
+        catch
+        {
+            return ApplicationRunningContext.AppState.Undefined;
+        }
+    }
+
     private static ApplicationRunningContext.AppState CheckAppState(string appId)
     {
         try
@@ -38,9 +54,11 @@ internal sealed class ServiceManager : TaskLoopRunner
 {
     private static readonly ServiceManager _singleton = new();
 
-    private readonly MessagePort _uiLocalPort = new(Constants.UiPortName, false);
+    private MessagePort _uiLocalPort = new(Constants.UiPortName, false);
 
     private readonly ManualResetEventSlim pingEvent = new ManualResetEventSlim();
+
+    private bool isCommunicating;
 
     private ServiceManager() : base(new TizenLogger(), TaskLoopRunnerOptions.LongRunning)
     {
@@ -60,30 +78,55 @@ internal sealed class ServiceManager : TaskLoopRunner
         SendCommandToService(Constants.Commands.StopCommand);
     }
 
+    public void SendReloadSettings()
+    {
+        SendCommandToService(Constants.Commands.ReloadSettingsCommand);
+    }
+
+    public async Task KillService()
+    {
+        await StopAsync();
+        ApplicationHelper.KillService();
+    }
+
+    public bool IsCommunicating => isCommunicating;
+
     protected override async Task LoopAsync()
     {
         const int defaultWaitTimeSeconds = 5;
         const int maxPatience = 5;
         int pingPatience = 0;
+        Stopwatch watch = new Stopwatch();
 
-        while(!CancellationTokenSource!.IsCancellationRequested)
+        while (!CancellationTokenSource!.IsCancellationRequested)
         {
-            if(!IsServiceRunning())
+            if (!IsServiceRunning())
             {
-                LaunchBackgrund();
-            }
-            else
-            {
-                SendCommandToService(Constants.Commands.PingCommand);
-                
-                if(pingEvent.Wait(TimeSpan.FromSeconds(2)))
+                if (!watch.IsRunning || watch.Elapsed.Seconds > defaultWaitTimeSeconds)
                 {
-                   pingPatience = 0;
-                   pingEvent.Reset();
+                    watch.Start();
+                    LaunchBackground();
+                }
+            }
+            else if (_uiLocalPort is not null && _uiLocalPort.Listening)
+            {
+                if (watch.IsRunning)
+                {
+                    watch.Stop();
+                }
+
+                SendCommandToService(Constants.Commands.PingCommand);
+
+                if (pingEvent.Wait(TimeSpan.FromSeconds(2)))
+                {
+                    isCommunicating = true;
+
+                    pingPatience = 0;
+                    pingEvent.Reset();
                 }
                 else
                 {
-                    if(pingPatience < maxPatience)
+                    if (pingPatience < maxPatience)
                     {
                         pingPatience++;
 
@@ -94,7 +137,8 @@ internal sealed class ServiceManager : TaskLoopRunner
                     {
                         // Force a relaunch
                         pingPatience = 0;
-                        LaunchBackgrund();                        
+                        isCommunicating = false;
+                        LaunchBackground();
                     }
                 }
             }
@@ -103,12 +147,26 @@ internal sealed class ServiceManager : TaskLoopRunner
         }
     }
 
+    protected override ValueTask OnStartAsync()
+    {
+        _uiLocalPort = new(Constants.UiPortName, false);
+        return base.OnStartAsync();
+    }
+
+    protected override async ValueTask OnStopAsync()
+    {
+        await base.OnStopAsync();
+
+        isCommunicating = false;
+        _uiLocalPort.Dispose();
+    }
+
     private static bool IsServiceRunning()
     {
         return ApplicationHelper.CheckServiceState() == ApplicationRunningContext.AppState.Service;
     }
 
-    private void LaunchBackgrund()
+    private void LaunchBackground()
     {
         AppControl serviceLaunchRequest = new()
         {
@@ -124,6 +182,8 @@ internal sealed class ServiceManager : TaskLoopRunner
         if (result >= AppControlReplyResult.Succeeded)
         {
             InitializeCommunication();
+
+            SendCommandToService(Constants.Commands.StartCommand);
         }
         else
         {
@@ -137,7 +197,7 @@ internal sealed class ServiceManager : TaskLoopRunner
         {
             string eventName = e.Message.GetItem<string>(Constants.Events.EventKey);
 
-            if(eventName == Constants.Events.PongEvent)
+            if (eventName == Constants.Events.PongEvent)
             {
                 pingEvent.Set();
                 return;
@@ -147,12 +207,18 @@ internal sealed class ServiceManager : TaskLoopRunner
         };
 
         _uiLocalPort.Listen();
+        isCommunicating = true;
 
         SendCommandToService(Constants.Commands.GetStatusCommand);
     }
 
     private void SendCommandToService(string command)
     {
+        if (!isCommunicating)
+        {
+            return;
+        }
+
         using Bundle msg = new();
         msg.AddItem(Constants.Commands.CommandKey, command);
         _uiLocalPort.Send(msg, Constants.ServiceAppId, Constants.ServicePortName, false);

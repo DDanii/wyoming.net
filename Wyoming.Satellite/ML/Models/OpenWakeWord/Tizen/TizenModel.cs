@@ -9,7 +9,7 @@ public abstract class TizenModel : IDisposable
 
     public TizenModel(string modelPath)
     {
-        engine = new SingleShot(modelPath);
+        engine = new SingleShot(modelPath, NNFWType.TensorflowLite, HWType.Auto);
     }
 
     public void Dispose()

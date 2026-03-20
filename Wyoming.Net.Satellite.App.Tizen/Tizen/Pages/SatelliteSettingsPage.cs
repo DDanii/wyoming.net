@@ -19,7 +19,7 @@ public class SatelliteSettingsPage : ContentPage
 		var descriptionInput = TizenUI.CreateInput(vm, (it) => it.Description, (it, value) => it.Description = value);
 
 		var portLabel = TizenUI.CreateLabel("Port");
-		var portInput = TizenUI.CreateInput(vm, (it) => it.Port, (it, value) => it.Port = value.ToIntOrDefault());
+		var portInput = TizenUI.CreateInput(vm, (it) => it.Port, (it, value) => it.Port = value.ToIntOrDefault(), true);
 
 		nameInput.UpFocusableView = parent;
 		nameInput.DownFocusableView = areaInput;

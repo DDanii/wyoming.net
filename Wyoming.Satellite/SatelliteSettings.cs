@@ -50,7 +50,9 @@ public sealed record WakeSettings
 
     public int? RefractorySeconds { get; set; } = 5;
 
-    public int MaxPatience { get; set; } = 15;
+    public int MinSpeechFrames { get; set; } = 2;
+
+    public int Patience { get; set; } = 5;
 
     public float PredictionThreshold { get; set; } = 0.5f;
 }
@@ -72,9 +74,8 @@ public sealed record VadSettings
 
     public bool UseEnergyGate { get; set; } = false;
 
-    public float EnergyGateThreshold { get; set; } = 0.0008f;
+    public float EnergyGateThreshold { get; set; } = 0.0005f;
 
-    public float EnergyGateZcr { get; set; } = 0.4f;
 }
 
 public sealed record SatelliteSettings

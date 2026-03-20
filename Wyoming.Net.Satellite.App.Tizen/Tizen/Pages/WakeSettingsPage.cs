@@ -12,40 +12,28 @@ public class WakeSettingsPage : ContentPage
         var modelLabel = TizenUI.CreateLabel("Model");
         var modelInput = TizenUI.CreateInput(vm, (it) => it.Model, (it, value) => it.Model = value);
 
-        var rateLabel = TizenUI.CreateLabel("Rate");
-        var rateInput = TizenUI.CreateInput(vm, (it) => it.Rate, (it, value) => it.Rate = value.ToIntOrDefault());
-
-        var widthLabel = TizenUI.CreateLabel("Width");
-        var widthInput = TizenUI.CreateInput(vm, (it) => it.Width, (it, value) => it.Width = value.ToIntOrDefault());
-
-        var channelsLabel = TizenUI.CreateLabel("Channels");
-        var channelsInput = TizenUI.CreateInput(vm, (it) => it.Channels, (it, value) => it.Channels = value.ToIntOrDefault());
-
         var refracLabel = TizenUI.CreateLabel("Refractory Seconds");
         var refracInput = TizenUI.CreateInput(vm, (it) => it.RefractorySeconds, (it, value) => it.RefractorySeconds = value.ToIntOrDefault());
 
-        var patienceLabel = TizenUI.CreateLabel("Max Patience");
-        var patienceInput = TizenUI.CreateInput(vm, (it) => it.MaxPatience, (it, value) => it.MaxPatience = value.ToIntOrDefault());
+        var minSpeechLabel = TizenUI.CreateLabel("Min Speech Frames");
+        var minSpeechInput = TizenUI.CreateInput(vm, (it) => it.MinSpeechFrames, (it, value) => it.MinSpeechFrames = value.ToIntOrDefault());
+
+        var patienceLabel = TizenUI.CreateLabel("Patience");
+        var patienceInput = TizenUI.CreateInput(vm, (it) => it.Patience, (it, value) => it.Patience = value.ToIntOrDefault());
 
         var thresholdLabel = TizenUI.CreateLabel("Prediction Threshold");
-        var thresholdInput = TizenUI.CreateInput(vm, (it) => it.PredictionThreshold, (it, value) => it.PredictionThreshold = value.ToFloatOrDefault());
+        var thresholdInput = TizenUI.CreateInput(vm, (it) => it.PredictionThreshold, (it, value) => it.PredictionThreshold = value.ToFloatOrDefault(), true);
 
         modelInput.UpFocusableView = parent;
-        modelInput.DownFocusableView = rateInput;
+        modelInput.DownFocusableView = refracInput;
 
-        rateInput.UpFocusableView = modelInput;
-        rateInput.DownFocusableView = widthInput;
+        refracInput.UpFocusableView = modelInput;
+        refracInput.DownFocusableView = minSpeechInput;
 
-        widthInput.UpFocusableView = rateInput;
-        widthInput.DownFocusableView = channelsInput;
+        minSpeechInput.UpFocusableView = refracInput;
+        minSpeechInput.DownFocusableView = patienceInput;
 
-        channelsInput.UpFocusableView = widthInput;
-        channelsInput.DownFocusableView = refracInput;
-
-        refracInput.UpFocusableView = channelsInput;
-        refracInput.DownFocusableView = patienceInput;
-
-        patienceInput.UpFocusableView = refracInput;
+        patienceInput.UpFocusableView = minSpeechInput;
         patienceInput.DownFocusableView = thresholdInput;
 
         thresholdInput.UpFocusableView = patienceInput;
@@ -67,14 +55,10 @@ public class WakeSettingsPage : ContentPage
 
         view.Add(modelLabel);
         view.Add(modelInput);
-        view.Add(rateLabel);
-        view.Add(rateInput);
-        view.Add(widthLabel);
-        view.Add(widthInput);
-        view.Add(channelsLabel);
-        view.Add(channelsInput);
         view.Add(refracLabel);
         view.Add(refracInput);
+        view.Add(minSpeechLabel);
+        view.Add(minSpeechInput);
         view.Add(patienceLabel);
         view.Add(patienceInput);
         view.Add(thresholdLabel);

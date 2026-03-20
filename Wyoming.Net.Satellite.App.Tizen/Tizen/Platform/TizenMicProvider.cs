@@ -11,6 +11,8 @@ namespace Wyoming.Net.Satellite.App.Tz.Platform;
 
 internal sealed class TizenMicProvider : IMicInputProvider
 {
+    private readonly byte[] readBuffer = new byte[MicSettings.SamplesPerChunk * sizeof(short)];
+
     private readonly Task<long?> cachedReadTask = Task.FromResult<long?>(null);
 
     private readonly AudioCapture audioCapture;
@@ -23,36 +25,31 @@ internal sealed class TizenMicProvider : IMicInputProvider
 
     private AudioIOState state;
 
+    private volatile bool focusLost;
+
     public TizenMicProvider(ILogger logger)
     {
-        audioCapture = new AudioCapture(Rate, AudioChannel.Mono, AudioSampleType.S16Le);
+        audioCapture = new AudioCapture(MicSettings.Rate, AudioChannel.Mono, AudioSampleType.S16Le);
         audioCaptureHandle = (IntPtr)audioCapture.GetType()
                                                  .GetField("_handle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                                                  .GetValue(audioCapture)!;
 
-
-        audioStreamPolicy = new AudioStreamPolicy(AudioStreamType.VoiceRecognition)
+        audioStreamPolicy = new AudioStreamPolicy(AudioStreamType.Media)
         {
             FocusReacquisitionEnabled = true,
         };
+        audioStreamPolicy.FocusStateChanged += OnFocusStateChanged;
         audioCapture.ApplyStreamPolicy(audioStreamPolicy);
 
         audioCapture.StateChanged += OnStateChanged;
         this.logger = logger;
     }
 
-    public int Rate => 16000;
-
-    public int Channels => 1;
-
-    public int Width => sizeof(float);
-
     public Task<long?> ReadAsync(byte[] buffer, CancellationToken cancellationToken)
     {
-        // We are on playback
-        if (audioStreamPolicy.PlaybackFocusState == AudioStreamFocusState.Acquired)
+        if (focusLost)
         {
-            logger.LogInformation("Playback has focus, skipping AudioCapture read");
+            logger.LogInformation("Recording focus lost, skipping AudioCapture read");
             return cachedReadTask;
         }
 
@@ -74,13 +71,9 @@ internal sealed class TizenMicProvider : IMicInputProvider
                 break;
         }
 
+        NativeAudio.Read(audioCaptureHandle, ref MemoryMarshal.GetReference(readBuffer.AsSpan()), readBuffer.Length).ThrowIfFailed("Failed to read audio");
 
-        var sampleCount = buffer.Length / Width;
-        Span<byte> audio = stackalloc byte[sampleCount * sizeof(short)];
-
-        NativeAudio.Read(audioCaptureHandle, ref MemoryMarshal.GetReference(audio), audio.Length).ThrowIfFailed("Failed to read audio");
-
-        AudioOp.Pcm16ToFloat(audio, MemoryMarshal.Cast<byte, float>(buffer));
+        AudioOp.Pcm16ToFloat(readBuffer, MemoryMarshal.Cast<byte, float>(buffer));
         return cachedReadTask;
     }
 
@@ -99,6 +92,30 @@ internal sealed class TizenMicProvider : IMicInputProvider
     public void Dispose()
     {
         audioCapture.Dispose();
+    }
+
+    private void OnFocusStateChanged(object? sender, AudioStreamPolicyFocusStateChangedEventArgs args)
+    {
+        logger.LogInformation("Mic focus changed: {options} -> {state}", args.FocusOptions, args.FocusState);
+
+        if (args.FocusOptions != AudioStreamFocusOptions.Recording)
+        {
+            return;
+        }
+
+        if (args.FocusState == AudioStreamFocusState.Released)
+        {
+            focusLost = true;
+
+            if (state == AudioIOState.Running)
+            {
+                audioCapture.Pause();
+            }
+        }
+        else if (args.FocusState == AudioStreamFocusState.Acquired)
+        {
+            focusLost = false;
+        }
     }
 
     private void OnStateChanged(object? sender, AudioIOStateChangedEventArgs args)

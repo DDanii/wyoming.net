@@ -10,25 +10,19 @@ public sealed class WakeSettingsViewModel
 {
     public string? Model { get;set; } = "alexa";
 
-    public bool Enabled { get; set; } = true;
-
-    public int Rate { get; set; } = 16000;
-
-    public int Width { get; set; } = 2;
-
-    public int Channels {get; set; } = 1;
-
     public int RefractorySeconds { get; set; } = 5;
 
-    public int MaxPatience { get; set; } = 20;
+    public int MinSpeechFrames { get; set; } = 2;
 
-    public float PredictionThreshold { get; set; } = 0.5f;
+    public int Patience { get; set; } = 5;
+
+    public float PredictionThreshold { get; set; } = 0.7f;
 
     public bool IsValid(out string? message)
     {
         message = null;
 
-        if(Enabled && string.IsNullOrEmpty(Model))
+        if(string.IsNullOrEmpty(Model))
         {
             message = "Please enter wake word model";
             return false;  
@@ -39,7 +33,6 @@ public sealed class WakeSettingsViewModel
 
     public async Task<OpenWakeWordModels> GetModelsAsync()
     {
-        Asserts.IsTrue(Enabled);
         Asserts.IsNotNull(Model);
 
         var melspectrogramModel = new MelspectrogramModel(TizenAssetReader.GetResourcePath("melspectrogram.tflite"));
@@ -53,14 +46,11 @@ public sealed class WakeSettingsViewModel
     {
         return new WakeSettings()
         {
-            Channels = Channels,
-            Enabled = Enabled,
-            MaxPatience = MaxPatience,
+            MinSpeechFrames = MinSpeechFrames,
+            Patience = Patience,
             PredictionThreshold = PredictionThreshold,
             Name = Model,
-            Rate = Rate,
             RefractorySeconds = RefractorySeconds,
-            Width = Width
         };
     }
 

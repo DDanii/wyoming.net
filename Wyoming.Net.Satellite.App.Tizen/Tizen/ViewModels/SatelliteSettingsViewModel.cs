@@ -2,11 +2,21 @@ namespace Wyoming.Net.Satellite.App.Tz.ViewModels;
 
 using System.IO;
 using System.Text.Json;
+using Wyoming.Net.Core.WebRtc.Vad;
 using Wyoming.Net.Satellite.App.Tz.Platform;
+using VadType = Wyoming.Net.Satellite.VadSettings.VadType;
 
 public sealed class SatelliteSettingsViewModel
 {
     public WakeSettingsViewModel WakeSettings { get; set; } = new();
+
+    public VadSettingsViewModel VadSettings { get; set; } = new();
+
+    public StateConfigurationViewModel StateConfiguration { get; set; } = new();
+
+    public PowerStateSettingsViewModel PowerStateSettings { get; set; } = new();
+
+    public ControlPanelViewModel ControlPanel { get; set; } = new();
     
     public string? Area { get; set; } = "Sala";
 
@@ -38,12 +48,7 @@ public sealed class SatelliteSettingsViewModel
             return false;
         }
 
-        if(WakeSettings.Enabled)
-        {
-            return WakeSettings.IsValid(out message);
-        }
-
-        return true;
+       return WakeSettings.IsValid(out message);
     }
 
     public void Save()
@@ -51,14 +56,19 @@ public sealed class SatelliteSettingsViewModel
         File.WriteAllText(GetSettingsFilePath(), JsonSerializer.Serialize(this));
     }
 
-    public SatelliteSettings ToSatelliteSettings()
+    public void UpdateSatelliteSettings()
     {
-        var settings = new SatelliteSettings()
-        {
-            Wake = WakeSettings.ToSatelliteSettings()
-        };
+        SatelliteSettings.Wake.Name = WakeSettings.Model;
+        SatelliteSettings.Wake.MinSpeechFrames = WakeSettings.MinSpeechFrames;
+        SatelliteSettings.Wake.Patience = WakeSettings.Patience;
+        SatelliteSettings.Wake.PredictionThreshold = WakeSettings.PredictionThreshold;
+        SatelliteSettings.Wake.RefractorySeconds = WakeSettings.RefractorySeconds;
 
-        return settings;
+        SatelliteSettings.Vad.Enabled = VadSettings.Enabled;
+        SatelliteSettings.Vad.Type = (VadType)VadSettings.Type;
+        SatelliteSettings.Vad.WebRtcMode = (VadMode)VadSettings.WebRtcMode;
+        SatelliteSettings.Vad.UseEnergyGate = VadSettings.UseEnergyGate;
+        SatelliteSettings.Vad.EnergyGateThreshold = VadSettings.EnergyGateThreshold;
     }
 
     public static SatelliteSettingsViewModel Load()

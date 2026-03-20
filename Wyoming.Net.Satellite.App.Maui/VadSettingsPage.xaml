@@ -38,8 +38,5 @@
         <Label Text="Energy Gate Threshold" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
         <Entry Keyboard="Numeric" Text="{Binding EnergyGateThreshold}"></Entry>
 
-        <Label Text="Energy Gate ZCR" VerticalOptions="Center" FontSize="20" Margin="0,10,0,10"/>
-        <Entry Keyboard="Numeric" Text="{Binding EnergyGateZcr}"></Entry>
-
     </VerticalStackLayout>
 </ContentPage>

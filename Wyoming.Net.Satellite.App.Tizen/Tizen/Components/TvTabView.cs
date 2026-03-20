@@ -31,6 +31,9 @@ internal sealed class TvTabView : View
         }
     }
 
+    private const int HeaderExpandedWidth = 400;
+    private const int HeaderCollapsedWidth = 80;
+
     private readonly List<TabItem> tabs = new();
 
     private readonly View body;
@@ -44,7 +47,8 @@ internal sealed class TvTabView : View
         body = new View()
         {
             WidthResizePolicy = ResizePolicyType.FillToParent,
-            HeightResizePolicy = ResizePolicyType.FitToChildren,
+            HeightResizePolicy = ResizePolicyType.FillToParent,
+            Weight = 1,
             Focusable = true,
             Layout = new LinearLayout
             {
@@ -55,26 +59,28 @@ internal sealed class TvTabView : View
 
         header = new View()
         {
-            WidthResizePolicy = ResizePolicyType.FillToParent,
-            HeightResizePolicy = ResizePolicyType.FitToChildren,
+            WidthSpecification = HeaderCollapsedWidth,
+            HeightResizePolicy = ResizePolicyType.FillToParent,
             Focusable = true,
             Layout = new LinearLayout
             {
-                LinearOrientation = LinearLayout.Orientation.Horizontal,
+                LinearOrientation = LinearLayout.Orientation.Vertical,
                 HorizontalAlignment = HorizontalAlignment.Begin,
-                VerticalAlignment = VerticalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Top,
 
-            }
+            },
+            BorderlineColor = TvStyle.ButtonBorderlineColor,
+            BorderlineWidth = 1,
         };
 
         WidthResizePolicy = ResizePolicyType.FillToParent;
-        HeightResizePolicy = ResizePolicyType.FitToChildren;
+        HeightResizePolicy = ResizePolicyType.FillToParent;
         Focusable = true;
         Layout = new LinearLayout
         {
-            LinearOrientation = LinearLayout.Orientation.Vertical,
+            LinearOrientation = LinearLayout.Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Begin,
-            VerticalAlignment = VerticalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
 
         };
 
@@ -82,8 +88,10 @@ internal sealed class TvTabView : View
         Add(body);
         FocusGained += OnFocus;
 
-        body.UpFocusableView = header;
+        body.LeftFocusableView = header;
     }
+
+    public View Body => body;
 
     private void OnBodyFocus(object? sender, EventArgs args)
     {
@@ -112,12 +120,28 @@ internal sealed class TvTabView : View
         }
     }
 
+    private void ExpandHeader()
+    {
+        header.WidthSpecification = HeaderExpandedWidth;
+        foreach (var t in tabs)
+        {
+            t.Text = t.Text; // force relayout
+        }
+    }
+
+    private void CollapseHeader()
+    {
+        header.WidthSpecification = HeaderCollapsedWidth;
+    }
+
     private void OnTabFocus(object? sender, EventArgs args)
     {
         if (sender is not TabItem tab)
         {
             return;
         }
+
+        ExpandHeader();
 
         foreach (var t in tabs)
         {
@@ -132,12 +156,24 @@ internal sealed class TvTabView : View
         tab.Selected = true;
         tab.BorderlineColor = TvStyle.ButtonFocusedBorderlineColor;
         tab.BackgroundColor = TvStyle.ButtonFocusedBackgroundColor;
-        tab.DownFocusableView = body;
-
-        tab.DownFocusableView = body;
-        body.UpFocusableView = tab;
+        tab.RightFocusableView = body;
+        body.LeftFocusableView = tab;
 
         body.Add(tab.Child);
+        SetLeftFocusToHeader(tab.Child, tab);
+    }
+
+    private void SetLeftFocusToHeader(View view, TabItem tab)
+    {
+        if (view.Focusable)
+        {
+            view.LeftFocusableView = tab;
+        }
+
+        foreach (var child in view.Children)
+        {
+            SetLeftFocusToHeader(child, tab);
+        }
     }
 
     private void OnTabLostFocus(object? sender, EventArgs args)
@@ -151,10 +187,16 @@ internal sealed class TvTabView : View
 
         var nextFocus = FocusManager.Instance.GetCurrentFocusView();
 
-        if (nextFocus == body && tab.Selected)
+        // Focus moving to another tab — keep expanded, just update style
+        if (nextFocus is TabItem)
         {
+            tab.BorderlineColor = TvStyle.ButtonBorderlineColor;
+            tab.BackgroundColor = Color.Transparent;
             return;
         }
+
+        // Focus leaving the header entirely (into body) — collapse
+        CollapseHeader();
 
         tab.BorderlineColor = TvStyle.ButtonBorderlineColor;
         tab.BackgroundColor = Color.Transparent;
@@ -165,14 +207,15 @@ internal sealed class TvTabView : View
         var tab = new TabItem(child, tabs.Count)
         {
             Text = name,
-            WidthSpecification = 400,
-            HeightSpecification = 100,
+            WidthSpecification = LayoutParamPolicies.MatchParent,
+            HeightSpecification = 80,
             Focusable = true,
             FocusNavigationSupport = true,
             BorderlineColor = TvStyle.ButtonBorderlineColor,
             BorderlineWidth = 1,
             TextColor = Color.White,
-            WidthResizePolicy = ResizePolicyType.FillToParent,
+            //WidthResizePolicy = ResizePolicyType.FillToParent,
+            TextAlignment = HorizontalAlignment.Center,
             Selected = tabs.Count == 0
         };
         tab.FocusGained += OnTabFocus;
@@ -181,9 +224,9 @@ internal sealed class TvTabView : View
         if (tabs.Any())
         {
             var last = tabs.Last();
-            tab.LeftFocusableView = last;
+            tab.UpFocusableView = last;
 
-            last.RightFocusableView = tab;
+            last.DownFocusableView = tab;
         }
 
         tabs.Add(tab);
