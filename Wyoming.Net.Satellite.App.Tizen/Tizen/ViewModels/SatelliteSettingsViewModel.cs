@@ -15,6 +15,8 @@ public sealed class SatelliteSettingsViewModel
     public StateConfigurationViewModel StateConfiguration { get; set; } = new();
 
     public PowerStateSettingsViewModel PowerStateSettings { get; set; } = new();
+
+    public ControlPanelViewModel ControlPanel { get; set; } = new();
     
     public string? Area { get; set; } = "Sala";
 

@@ -34,6 +34,12 @@ public sealed class RemoteLogger : IDisposable
 
     public static RemoteLogger? Singleton => singleton;
 
+    public static void Restart(string ipAddress, int port)
+    {
+        singleton?.Dispose();
+        InitSingleton(ipAddress, port);
+    }
+
     public void Log(string message, string level = "INFO")
     {
         if(!_connected)

@@ -43,12 +43,17 @@ public sealed class BackgroundApp : ServiceApplication
         {
             base.OnCreate();
 
+            _settings = SatelliteSettingsViewModel.Load();
+            RemoteLogger.InitSingleton(
+                _settings.ControlPanel.RemoteLogIp,
+                _settings.ControlPanel.RemoteLogPort);
+
             ManagePowerLock(true);
 
             _localPort.MessageReceived += OnMessageReceived;
             _localPort.Listen();
 
-            _settings = SatelliteSettingsViewModel.Load();
+            
             _unactiveApps = _settings.StateConfiguration.UnactiveApps;
             _foregroundAppMonitor = new ForegroundAppMonitor(TizenLogger.Singleton);
             _foregroundAppMonitor.ForegroundAppChanged += OnForegroundAppChanged;

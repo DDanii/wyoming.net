@@ -2,6 +2,7 @@
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Wyoming.Net.Satellite.App.Tz.Platform;
+using Wyoming.Net.Satellite.App.Tz.ViewModels;
 
 
 namespace Wyoming.Net.Satellite.App.Tz
@@ -10,8 +11,6 @@ namespace Wyoming.Net.Satellite.App.Tz
     {
         static void Main(string[] args)
         {
-            RemoteLogger.InitSingleton("192.168.1.148", 5005);
-
            var app = string.Empty;
             
             for(int i = 0; i < args.Length; i++)
@@ -22,7 +21,7 @@ namespace Wyoming.Net.Satellite.App.Tz
                 }
             }
             
-            TizenLogger.Singleton.LogInformation("Initializing app: {app}", app);
+            //TizenLogger.Singleton.LogInformation("Initializing app: {app}", app);
 
             if (app.EndsWith(Constants.ServiceAppId))
             {

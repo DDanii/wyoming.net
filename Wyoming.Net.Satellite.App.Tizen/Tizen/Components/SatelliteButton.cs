@@ -13,9 +13,16 @@ internal sealed class SatelliteButton : Button
 
     private SatelliteButtonState _state;
 
-    public SatelliteButton()
+    private readonly string startText;
+
+    private readonly string stopText;
+
+    public SatelliteButton(string startText = "Start Satellite", string stopText = "Stop Satellite")
     {
-        Text = "Start Satellite";
+        this.startText = startText;
+        this.stopText = stopText;
+
+        Text = startText;
         Focusable = true;
         FocusNavigationSupport = true;
         BorderlineColor = TvStyle.ButtonBorderlineColor;
@@ -59,17 +66,27 @@ internal sealed class SatelliteButton : Button
     {
         if (_state == SatelliteButtonState.Started)
         {
-            _state = SatelliteButtonState.Paused;
-
-            Text = "Start Satellite";
-            BackgroundColor = TvStyle.ButtonBackgroundColor;
+            StopState();
         }
         else
         {
-            _state = SatelliteButtonState.Started;
-
-            Text = "Stop Satellite";
-            BackgroundColor = Color.Red;
+            StartState();
         }
+    }
+
+    public void StopState()
+    {
+        _state = SatelliteButtonState.Paused;
+
+        Text = startText;
+        BackgroundColor = TvStyle.ButtonBackgroundColor;
+    }
+
+    public void StartState()
+    {
+        _state = SatelliteButtonState.Started;
+
+        Text = stopText;
+        BackgroundColor = Color.Red;
     }
 }

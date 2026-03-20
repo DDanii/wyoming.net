@@ -28,6 +28,11 @@ public sealed class UIApp : NUIApplication
 
     protected override async void OnCreate()
     {
+        var settings = SatelliteSettingsViewModel.Load();
+        RemoteLogger.InitSingleton(
+            settings.ControlPanel.RemoteLogIp,
+            settings.ControlPanel.RemoteLogPort);
+
         await ServiceManager.Singleton.StartAsync();
         FocusManager.Instance.FocusIndicator = null;
 
@@ -38,8 +43,8 @@ public sealed class UIApp : NUIApplication
             Focusable = true,
             Layout = new LinearLayout
             {
-                LinearOrientation = LinearLayout.Orientation.Vertical,
-                HorizontalAlignment = HorizontalAlignment.Center,
+                LinearOrientation = LinearLayout.Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Begin,
                 VerticalAlignment = VerticalAlignment.Top,
 
             },
@@ -86,7 +91,14 @@ public sealed class UIApp : NUIApplication
             HeightResizePolicy = ResizePolicyType.FillToParent
         };
 
+        var controlPanelPage = new ControlPanelPage(satelliteSettingsVm.ControlPanel, tabView.Body)
+        {
+            WidthResizePolicy = ResizePolicyType.FillToParent,
+            HeightResizePolicy = ResizePolicyType.FillToParent
+        };
+
         var assistantTab = tabView.AddTab("Assistant", main);
+        var controlPanelTab = tabView.AddTab("Control Panel", controlPanelPage);
         var satelliteSettingsTab = tabView.AddTab("Satellite Settings", satelliteSettingsPage);
         var wakeSettingsTab = tabView.AddTab("Wake Settings", wakeSettingsPage);
         var vadSettingsTab = tabView.AddTab("VAD Settings", vadSettingsPage);
@@ -94,6 +106,7 @@ public sealed class UIApp : NUIApplication
         var powerStateTab = tabView.AddTab("Power States", powerStatePage);
 
         assistantTab.Leave += OnTabLeave;
+        controlPanelTab.Leave += OnTabLeave;
         satelliteSettingsTab.Leave += OnTabLeave;
         wakeSettingsTab.Leave += OnTabLeave;
         vadSettingsTab.Leave += OnTabLeave;
