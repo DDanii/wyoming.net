@@ -167,12 +167,16 @@ public sealed class BackgroundApp : ServiceApplication
             {
                 TizenLogger.Singleton.LogInformation("Stopping satellite: inactive app '{AppId}' is in foreground", appId);
                 _stoppedByMonitor = true;
+
+                _motionSensor?.Stop();
                 await StopSatellite();
             }
             else if (!isUnactive && _stoppedByMonitor)
             {
                 TizenLogger.Singleton.LogInformation("Starting satellite: inactive app no longer in foreground (now '{AppId}')", appId);
                 _stoppedByMonitor = false;
+
+                _motionSensor?.Start();
                 await StartSatellite();
             }
         }
@@ -206,6 +210,7 @@ public sealed class BackgroundApp : ServiceApplication
             if (enabled && _motionSensor == null)
             {
                 _motionSensor = new MotionSensor(0);
+                _motionSensor.Sensitivity = 3;
                 _motionSensor.DataUpdated += OnMotionSensorDataUpdated;
                 _motionSensor.Start();
             }

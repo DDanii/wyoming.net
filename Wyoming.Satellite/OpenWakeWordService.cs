@@ -173,6 +173,17 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         }
     }
 
+    protected override ValueTask OnStopAsync()
+    {
+        warmupFrames = 0;
+        silenceFrames = 0;
+        rawAudioBuffer.Clear();
+        melBuffer.Clear();
+        embeddingBuffer.Clear();
+
+        return ValueTask.CompletedTask;
+    }
+
     private float Predict(ReadOnlySpan<float> samples)
     {
         // samples -> MelspectrogramModel -> EmbeddingModel -> WakeWordModel
