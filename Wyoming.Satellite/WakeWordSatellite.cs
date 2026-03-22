@@ -10,10 +10,10 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
 {
     private readonly MicService micService;
     private readonly OpenWakeWordService openWakeWordService;
-    
+
     private long refractoryTimestamp;
 
-    public event Func<Task>? WakeWordDetected; 
+    public event Func<Task>? WakeWordDetected;
 
     public WakeWordSatellite(
         OpenWakeWordModels wakeModels,
@@ -23,13 +23,13 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
         ) : base(loggerFactory, speakerProvider)
     {
         openWakeWordService = new OpenWakeWordService(
-            wakeModels, 
-            this, 
+            wakeModels,
+            this,
             loggerFactory.CreateLogger<OpenWakeWordService>());
 
         micService = new MicService(
-            micInputProvider, 
-            this, 
+            micInputProvider,
+            this,
             loggerFactory.CreateLogger<MicService>());
     }
 
@@ -55,7 +55,7 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
         if (IsStreaming)
         {
             Logger.LogDebug("Sending {samples} to server", buffer.Length);
-            
+
             var chunk = AudioChunk.FromFloatPcm(
                 buffer,
                 timestamp,
@@ -83,7 +83,7 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
             Logger.LogError(e, "Event from server failed");
             await OnErrorAsync(e);
         }
-        
+
         return false;
     }
 
@@ -128,6 +128,30 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
         }
 
         await base.EventFromServerAsync(ev);
+    }
+
+    public async ValueTask MuteAsync()
+    {
+        if (IsPaused || MicMuted)
+        {
+            return;
+        }
+
+        MicMuted = true;
+        await micService.StopAsync();
+        await openWakeWordService.StopAsync();
+    }
+
+    public async ValueTask UnMuteAsync()
+    {
+        if (IsPaused || !MicMuted)
+        {
+            return;
+        }
+
+        MicMuted = false;
+        await micService.StartAsync();
+        await openWakeWordService.StartAsync();
     }
 
     private async ValueTask PauseSatelliteAsync()
@@ -195,7 +219,7 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
         }
 
         Logger.LogInformation("Wake word detected");
-        
+
         await WriteToServerAsync(new Detection()
         {
             Name = SatelliteSettings.Wake.Name
@@ -203,7 +227,7 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
 
         await SendRunPipelineAsync();
         IsStreaming = true;
-        
+
         if (WakeWordDetected is not null)
         {
             await WakeWordDetected();

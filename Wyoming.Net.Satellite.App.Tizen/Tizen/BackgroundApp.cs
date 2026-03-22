@@ -67,6 +67,7 @@ public sealed class BackgroundApp : ServiceApplication
         }
     }
 
+
     private static void ManagePowerLock(bool acquiring)
     {
         try
@@ -259,7 +260,7 @@ public sealed class BackgroundApp : ServiceApplication
 
     private void OnNoMotion()
     {
-        if (_noMotionTimer == null && _satellite?.IsRunning == true && !_stoppedByMonitor)
+        if (_noMotionTimer == null && _satellite is not null && _satellite.IsRunning && !_satellite.MicMuted && !_stoppedByMonitor)
         {
             _noMotionTimer = new Timer(async _ =>
             {
@@ -272,7 +273,7 @@ public sealed class BackgroundApp : ServiceApplication
 
                 _stoppedByMotion = true;
 
-                await StopSatellite();
+                await _satellite.MuteAsync();
 
                 _foregroundAppMonitor?.Stop();
                 _noMotionTimer?.Dispose();
@@ -299,6 +300,7 @@ public sealed class BackgroundApp : ServiceApplication
             _foregroundAppMonitor?.Start(_settings.StateConfiguration.WatcherIntervalSeconds * 1000);
 
             await StartSatellite();
+            await _satellite!.UnMuteAsync();
         }
     }
 
