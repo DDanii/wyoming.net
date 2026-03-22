@@ -8,8 +8,12 @@ namespace Wyoming.Net.Satellite.App.Tz.Platform;
 public sealed class ForegroundAppMonitor : IDisposable
 {
     private Timer? _timer;
+
     private string? _currentForegroundAppId;
+
     private readonly ILogger _logger;
+
+    private bool _running;
 
     public event Action<string>? ForegroundAppChanged;
 
@@ -20,13 +24,26 @@ public sealed class ForegroundAppMonitor : IDisposable
 
     public void Start(int intervalMs = 5000)
     {
+        if(_running)
+        {
+            return;
+        }
+
         _timer = new Timer(OnTick, null, 0, intervalMs);
+        _running = true;
     }
 
     public void Stop()
     {
+        if(!_running)
+        {
+            return;
+        }
+
         _timer?.Dispose();
         _timer = null;
+        _currentForegroundAppId = null;
+        _running = false;
     }
 
     private async void OnTick(object? state)

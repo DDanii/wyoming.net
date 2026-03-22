@@ -168,7 +168,6 @@ public sealed class BackgroundApp : ServiceApplication
                 TizenLogger.Singleton.LogInformation("Stopping satellite: inactive app '{AppId}' is in foreground", appId);
                 _stoppedByMonitor = true;
 
-                _motionSensor?.Stop();
                 await StopSatellite();
             }
             else if (!isUnactive && _stoppedByMonitor)
@@ -176,7 +175,6 @@ public sealed class BackgroundApp : ServiceApplication
                 TizenLogger.Singleton.LogInformation("Starting satellite: inactive app no longer in foreground (now '{AppId}')", appId);
                 _stoppedByMonitor = false;
 
-                _motionSensor?.Start();
                 await StartSatellite();
             }
         }
@@ -210,7 +208,6 @@ public sealed class BackgroundApp : ServiceApplication
             if (enabled && _motionSensor == null)
             {
                 _motionSensor = new MotionSensor(0);
-                _motionSensor.Sensitivity = 3;
                 _motionSensor.DataUpdated += OnMotionSensorDataUpdated;
                 _motionSensor.Start();
             }
@@ -262,7 +259,7 @@ public sealed class BackgroundApp : ServiceApplication
 
     private void OnNoMotion()
     {
-        if (_noMotionTimer == null && _satellite?.IsRunning == true)
+        if (_noMotionTimer == null && _satellite?.IsRunning == true && !_stoppedByMonitor)
         {
             _noMotionTimer = new Timer(async _ =>
             {
@@ -274,7 +271,10 @@ public sealed class BackgroundApp : ServiceApplication
                 }
 
                 _stoppedByMotion = true;
+
                 await StopSatellite();
+
+                _foregroundAppMonitor?.Stop();
                 _noMotionTimer?.Dispose();
                 _noMotionTimer = null;
 
@@ -296,6 +296,7 @@ public sealed class BackgroundApp : ServiceApplication
                 NativeDisplay.TurnOnScreen();
             }
             _stoppedByMotion = false;
+            _foregroundAppMonitor?.Start(_settings.StateConfiguration.WatcherIntervalSeconds * 1000);
 
             await StartSatellite();
         }
