@@ -54,10 +54,12 @@ internal class TizenLogger : ILogger, IDisposable
             break;
 
             case LogLevel.Error:
-            TizenLog.Error(TAG, string.Concat(msg, Environment.NewLine, exception?.ToString()));
+            msg = string.Concat(msg, Environment.NewLine, exception?.ToString());
+            TizenLog.Error(TAG, msg);
             break;
 
             case LogLevel.Critical:
+            msg = string.Concat(msg, Environment.NewLine, exception?.ToString());
             TizenLog.Fatal(TAG, msg);
             break;
         }

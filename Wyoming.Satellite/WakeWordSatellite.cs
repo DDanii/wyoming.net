@@ -15,6 +15,12 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
 
     public event Func<Task>? WakeWordDetected;
 
+    public Action<float, ReadOnlyMemory<float>>? DebugPredictionCallback
+    {
+        get => openWakeWordService.DebugPredictionCallback;
+        set => openWakeWordService.DebugPredictionCallback = value;
+    }
+
     public WakeWordSatellite(
         OpenWakeWordModels wakeModels,
         ILoggerFactory loggerFactory,

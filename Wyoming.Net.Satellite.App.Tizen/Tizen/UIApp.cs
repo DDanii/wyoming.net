@@ -97,6 +97,12 @@ public sealed class UIApp : NUIApplication
             HeightResizePolicy = ResizePolicyType.FillToParent
         };
 
+        var debugAudioPage = new DebugAudioPage(tabView.Body)
+        {
+            WidthResizePolicy = ResizePolicyType.FillToParent,
+            HeightResizePolicy = ResizePolicyType.FillToParent
+        };
+
         var assistantTab = tabView.AddTab("Assistant", main);
         var controlPanelTab = tabView.AddTab("Control Panel", controlPanelPage);
         var satelliteSettingsTab = tabView.AddTab("Satellite Settings", satelliteSettingsPage);
@@ -104,6 +110,7 @@ public sealed class UIApp : NUIApplication
         var vadSettingsTab = tabView.AddTab("VAD Settings", vadSettingsPage);
         var stateConfigTab = tabView.AddTab("App States", stateConfigPage);
         var powerStateTab = tabView.AddTab("Power States", powerStatePage);
+        var debugTab = tabView.AddTab("Debug", debugAudioPage);
 
         assistantTab.Leave += OnTabLeave;
         controlPanelTab.Leave += OnTabLeave;
@@ -112,6 +119,7 @@ public sealed class UIApp : NUIApplication
         vadSettingsTab.Leave += OnTabLeave;
         stateConfigTab.Leave += OnTabLeave;
         powerStateTab.Leave += OnTabLeave;
+        debugTab.Leave += OnTabLeave;
 
         container.Add(tabView);
         Window.Instance.Add(container);

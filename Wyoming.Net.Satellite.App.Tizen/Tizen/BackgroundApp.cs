@@ -60,6 +60,8 @@ public sealed class BackgroundApp : ServiceApplication
             _foregroundAppMonitor.Start(_settings.StateConfiguration.WatcherIntervalSeconds * 1000);
 
             ConfigureMotionSensor();
+
+            NativeDisplay.TurnOnScreen();
         }
         catch (Exception e)
         {
@@ -169,7 +171,7 @@ public sealed class BackgroundApp : ServiceApplication
                 TizenLogger.Singleton.LogInformation("Stopping satellite: inactive app '{AppId}' is in foreground", appId);
                 _stoppedByMonitor = true;
 
-                await StopSatellite();
+                await _satellite.MuteAsync();
             }
             else if (!isUnactive && _stoppedByMonitor)
             {
@@ -177,6 +179,7 @@ public sealed class BackgroundApp : ServiceApplication
                 _stoppedByMonitor = false;
 
                 await StartSatellite();
+                await _satellite!.UnMuteAsync();
             }
         }
         catch (Exception ex)
@@ -327,6 +330,14 @@ public sealed class BackgroundApp : ServiceApplication
             _satellite.StateChanged += () => NotifyUiState();
             _satellite.WakeWordDetected += HandleWakeWordDetected;
             _satellite.SatelliteError += NotifyError;
+
+            if (settingsViewModel.ControlPanel.DebugAudioEnabled)
+            {
+                TizenLogger.Singleton.LogInformation("DebugAudio is Enabled!");
+                
+                var audioDebugger = new WakeWordAudioDebugger(TizenLogger.Singleton);
+                _satellite.DebugPredictionCallback = audioDebugger.OnPrediction;
+            }
 
             TizenServer.CreateSingleton(_satellite, settingsViewModel, loggerFactory);
 

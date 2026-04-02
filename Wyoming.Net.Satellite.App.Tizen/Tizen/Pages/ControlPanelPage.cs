@@ -37,7 +37,10 @@ public class ControlPanelPage : ContentPage
         var ipInput = TizenUI.CreateInput(vm, it => it.RemoteLogIp, (it, value) => it.RemoteLogIp = value);
 
         var portLabel = TizenUI.CreateLabel("Remote Log Port");
-        var portInput = TizenUI.CreateInput(vm, it => it.RemoteLogPort, (it, value) => it.RemoteLogPort = value.ToIntOrDefault(), isLastField: true);
+        var portInput = TizenUI.CreateInput(vm, it => it.RemoteLogPort, (it, value) => it.RemoteLogPort = value.ToIntOrDefault());
+
+        var debugAudioLabel = TizenUI.CreateLabel("Debug Audio");
+        var debugAudioToggle = TizenUI.CreateToggle(vm, it => it.DebugAudioEnabled, (it, value) => it.DebugAudioEnabled = value);
 
         _startStopButton.DownFocusableView = ipInput;
 
@@ -45,6 +48,9 @@ public class ControlPanelPage : ContentPage
         ipInput.DownFocusableView = portInput;
 
         portInput.UpFocusableView = ipInput;
+        portInput.DownFocusableView = debugAudioToggle;
+
+        debugAudioToggle.UpFocusableView = portInput;
 
         ipInput.FocusLost += (s, e) => RestartRemoteLogger();
         portInput.FocusLost += (s, e) => RestartRemoteLogger();
@@ -69,6 +75,8 @@ public class ControlPanelPage : ContentPage
         view.Add(ipInput);
         view.Add(portLabel);
         view.Add(portInput);
+        view.Add(debugAudioLabel);
+        view.Add(debugAudioToggle);
 
         Content = view;
         Focusable = true;

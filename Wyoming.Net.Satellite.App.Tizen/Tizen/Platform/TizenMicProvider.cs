@@ -126,7 +126,10 @@ internal sealed class TizenMicProvider : IMicInputProvider
 
     private void PrepareCapture()
     {
-        audioCapture.Prepare();
+        if (state == AudioIOState.Idle)
+        {
+            audioCapture.Prepare();
+        }
         audioCapture.Resume();
     }
 }

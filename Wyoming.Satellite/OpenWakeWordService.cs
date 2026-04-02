@@ -52,6 +52,8 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private int silenceFrames = 0;
     private int warmupFrames = 0;
 
+    public Action<float, ReadOnlyMemory<float>>? DebugPredictionCallback { get; set; }
+
     public OpenWakeWordService(
         OpenWakeWordModels models,
         IWakeWordPredictionHandler predictionHandler,
@@ -142,6 +144,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
             using var chunk = await channel.Reader.ReadAsync(CancellationTokenSource!.Token);
             float prediction = Predict(chunk.Buffer.Span);
+            DebugPredictionCallback?.Invoke(prediction, chunk.Buffer);
 
             logger.LogDebug("Prediction: {prediction}", prediction);
 

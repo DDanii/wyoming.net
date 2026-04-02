@@ -8,7 +8,7 @@ namespace Wyoming.Net.Satellite.App.Tz.ViewModels;
 
 public sealed class WakeSettingsViewModel
 {
-    public string? Model { get;set; } = "alexa";
+    public string? Model { get;set; } = "grace";
 
     public int RefractorySeconds { get; set; } = 5;
 
@@ -16,7 +16,7 @@ public sealed class WakeSettingsViewModel
 
     public int Patience { get; set; } = 5;
 
-    public float PredictionThreshold { get; set; } = 0.7f;
+    public float PredictionThreshold { get; set; } = 0.8f;
 
     public bool IsValid(out string? message)
     {
@@ -59,6 +59,7 @@ public sealed class WakeSettingsViewModel
         return model switch
         {
             "alexa" => "alexa_v0.1.tflite",
+            "grace" => "hey_grace.tflite",
             _ => throw new NotImplementedException(),
         };
     }
