@@ -55,7 +55,7 @@ public sealed class UIApp : NUIApplication
 
         var satelliteSettingsVm = SatelliteSettingsViewModel.Load();
 
-        var main = new MainPage(tabView)
+        var main = new MainPage(tabView.Body)
         {
             WidthResizePolicy = ResizePolicyType.FillToParent,
             HeightResizePolicy = ResizePolicyType.FillToParent

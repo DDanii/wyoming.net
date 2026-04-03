@@ -50,7 +50,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private readonly Channel<AudioTask<float>> channel;
 
     private int silenceFrames = 0;
-    private int warmupFrames = 0;
+    private int bufferWarmupFramesRemaining;
 
     public Action<float, ReadOnlyMemory<float>>? DebugPredictionCallback { get; set; }
 
@@ -67,6 +67,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         embeddingBuffer = new SlidingWindowPcmBuffer(embeddingBufferSize);
         melSpectogramBufferSize = models.EmbeddingModel.FlatShapeSize;
         melBuffer = new SlidingWindowPcmBuffer(melSpectogramBufferSize);
+        bufferWarmupFramesRemaining = wakeWordModel.FlatShapeSize / embeddingModel.FlattenedOutputSize; // 16
 
         this.predictionHandler = predictionHandler;
 
@@ -103,26 +104,14 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
         if (isSilent)
         {
-            if (warmupFrames > 0)
+            if (++silenceFrames == Fps * 5) // 5 seconds
             {
-                warmupFrames--;
-            }
-            else
-            {
-                if (++silenceFrames == Fps * 5) // 5 seconds
-                {
-                    warmupFrames = 0;
-                    melBuffer.Clear();
-                    embeddingBuffer.Clear();
-                }
-
-                return;
+                melBuffer.Clear();
+                embeddingBuffer.Clear();
+                bufferWarmupFramesRemaining = wakeWordModel.FlatShapeSize / embeddingModel.FlattenedOutputSize;
             }
 
-        }
-        else if (warmupFrames == 0)
-        {
-            warmupFrames = Fps * 5;
+            return;
         }
 
         silenceFrames = 0;
@@ -144,6 +133,13 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
             using var chunk = await channel.Reader.ReadAsync(CancellationTokenSource!.Token);
             float prediction = Predict(chunk.Buffer.Span);
+
+            if (bufferWarmupFramesRemaining > 0)
+            {
+                bufferWarmupFramesRemaining--;
+                continue;
+            }
+
             DebugPredictionCallback?.Invoke(prediction, chunk.Buffer);
 
             logger.LogDebug("Prediction: {prediction}", prediction);
@@ -178,8 +174,8 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
 
     protected override ValueTask OnStopAsync()
     {
-        warmupFrames = 0;
         silenceFrames = 0;
+        bufferWarmupFramesRemaining = wakeWordModel.FlatShapeSize / embeddingModel.FlattenedOutputSize;
         rawAudioBuffer.Clear();
         melBuffer.Clear();
         embeddingBuffer.Clear();

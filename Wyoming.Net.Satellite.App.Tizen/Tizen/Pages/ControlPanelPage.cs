@@ -42,15 +42,21 @@ public class ControlPanelPage : ContentPage
         var debugAudioLabel = TizenUI.CreateLabel("Debug Audio");
         var debugAudioToggle = TizenUI.CreateToggle(vm, it => it.DebugAudioEnabled, (it, value) => it.DebugAudioEnabled = value);
 
-        _startStopButton.DownFocusableView = ipInput;
+        var debugFileServerLabel = TizenUI.CreateLabel("Debug File Server (port 8089)");
+        var debugFileServerToggle = TizenUI.CreateToggle(vm, it => it.DebugFileServerEnabled, (it, value) => it.DebugFileServerEnabled = value);
 
-        ipInput.UpFocusableView = _startStopButton;
+        _startStopButton.DownFocusableView = debugAudioToggle;
+
+        debugAudioToggle.UpFocusableView = _startStopButton;
+        debugAudioToggle.DownFocusableView = debugFileServerToggle;
+
+        debugFileServerToggle.UpFocusableView = debugAudioToggle;
+        debugFileServerToggle.DownFocusableView = ipInput;
+
+        ipInput.UpFocusableView = debugFileServerToggle;
         ipInput.DownFocusableView = portInput;
 
         portInput.UpFocusableView = ipInput;
-        portInput.DownFocusableView = debugAudioToggle;
-
-        debugAudioToggle.UpFocusableView = portInput;
 
         ipInput.FocusLost += (s, e) => RestartRemoteLogger();
         portInput.FocusLost += (s, e) => RestartRemoteLogger();
@@ -71,12 +77,14 @@ public class ControlPanelPage : ContentPage
 
         view.Add(_statusLabel);
         view.Add(_startStopButton);
+        view.Add(debugAudioLabel);
+        view.Add(debugAudioToggle);
+        view.Add(debugFileServerLabel);
+        view.Add(debugFileServerToggle);
         view.Add(ipLabel);
         view.Add(ipInput);
         view.Add(portLabel);
         view.Add(portInput);
-        view.Add(debugAudioLabel);
-        view.Add(debugAudioToggle);
 
         Content = view;
         Focusable = true;

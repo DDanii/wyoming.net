@@ -34,6 +34,17 @@ public class MainPage : View
             string eventName = e.Message.GetItem<string>(Constants.Events.EventKey);
             RunUIUpdate(() => HandleServiceEvent(eventName, e.Message));
         };
+
+        parent.ChildAdded += (s, args) =>
+        {
+            if (args.Added == this)
+            {
+                if (ServiceManager.Singleton.IsCommunicating)
+                {
+                    ServiceManager.Singleton.SendGetStatus();
+                }
+            }
+        };
     }
 
     private void InitializeUI()

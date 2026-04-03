@@ -35,6 +35,8 @@ public sealed class BackgroundApp : ServiceApplication
     private bool _stoppedByMotion;
     private int _noMotionTimeoutSeconds;
 
+    private DebugFileServer? _debugFileServer;
+
     private SatelliteSettingsViewModel _settings = null!;
 
     protected override void OnCreate()
@@ -60,6 +62,7 @@ public sealed class BackgroundApp : ServiceApplication
             _foregroundAppMonitor.Start(_settings.StateConfiguration.WatcherIntervalSeconds * 1000);
 
             ConfigureMotionSensor();
+            ConfigureDebugFileServer();
 
             NativeDisplay.TurnOnScreen();
         }
@@ -93,6 +96,8 @@ public sealed class BackgroundApp : ServiceApplication
     {
         try
         {
+            _debugFileServer?.Dispose();
+            _debugFileServer = null;
             DisposeMotionSensor();
             _foregroundAppMonitor?.Dispose();
             ManagePowerLock(false);
@@ -195,6 +200,7 @@ public sealed class BackgroundApp : ServiceApplication
             _settings = SatelliteSettingsViewModel.Load();
             _unactiveApps = _settings.StateConfiguration.UnactiveApps;
             ConfigureMotionSensor();
+            ConfigureDebugFileServer();
         }
         catch (Exception ex)
         {
@@ -223,6 +229,29 @@ public sealed class BackgroundApp : ServiceApplication
         catch (Exception ex)
         {
             TizenLogger.Singleton.LogError(ex, "Error in ConfigureMotionSensor");
+        }
+    }
+
+    private void ConfigureDebugFileServer()
+    {
+        try
+        {
+            var enabled = _settings.ControlPanel.DebugFileServerEnabled;
+
+            if (enabled && _debugFileServer == null)
+            {
+                _debugFileServer = new DebugFileServer(TizenLogger.Singleton);
+                _debugFileServer.Start();
+            }
+            else if (!enabled && _debugFileServer != null)
+            {
+                _debugFileServer.Dispose();
+                _debugFileServer = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            TizenLogger.Singleton.LogError(ex, "Error in ConfigureDebugFileServer");
         }
     }
 

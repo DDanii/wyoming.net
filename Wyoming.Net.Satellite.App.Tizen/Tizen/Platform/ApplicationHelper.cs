@@ -83,6 +83,11 @@ internal sealed class ServiceManager : TaskLoopRunner
         SendCommandToService(Constants.Commands.ReloadSettingsCommand);
     }
 
+    public void SendGetStatus()
+    {
+        SendCommandToService(Constants.Commands.GetStatusCommand);
+    }
+
     public async Task KillService()
     {
         await StopAsync();
