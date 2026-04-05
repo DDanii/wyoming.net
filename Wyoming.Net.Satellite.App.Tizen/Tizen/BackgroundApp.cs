@@ -50,6 +50,8 @@ public sealed class BackgroundApp : ServiceApplication
                 _settings.ControlPanel.RemoteLogIp,
                 _settings.ControlPanel.RemoteLogPort);
 
+            TizenLogger.Level = LogLevel.Debug;
+
             ManagePowerLock(true);
 
             _localPort.MessageReceived += OnMessageReceived;

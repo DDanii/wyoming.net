@@ -31,7 +31,7 @@ internal sealed class WyomingStreamReader : IDisposable
     {
         if (available <= 0)
         {
-            Debug("[Reset] - Not Available");
+            Trace("[Reset] - Not Available");
 
             if (writeBuffer is not null)
             {
@@ -45,7 +45,7 @@ internal sealed class WyomingStreamReader : IDisposable
         }
         else
         {
-            Debug("[Reset] - Still Available");
+            Trace("[Reset] - Still Available");
 
             writeBuffer.AsSpan().Clear();
             writePos = 0;
@@ -55,17 +55,17 @@ internal sealed class WyomingStreamReader : IDisposable
     public async Task<string> ReadLineAsync(CancellationToken cancellationToken)
     {
         bool found = false;
-        Debug("[ReadLineAsync] Starting");
+        Trace("[ReadLineAsync] Starting");
 
         while (!found)
         {
             if (available == 0)
             {
-                Debug("[ReadLineAsync] Buffering", false);
+                Trace("[ReadLineAsync] Buffering", false);
 
                 await BufferContentAsync(cancellationToken);
 
-                Debug("[ReadLineAsync] Buffered");
+                Trace("[ReadLineAsync] Buffered");
 
                 if (!CanFitAvailable())
                 {
@@ -87,7 +87,7 @@ internal sealed class WyomingStreamReader : IDisposable
                 {
                     readPos++;
                     found = true;
-                    Debug("[ReadLineAsync] Found");
+                    Trace("[ReadLineAsync] Found");
                     break;
                 }
 
@@ -105,20 +105,20 @@ internal sealed class WyomingStreamReader : IDisposable
         return line;
     }
 
-    private void Debug(string message, bool dumpStats = true)
+    private void Trace(string message, bool dumpStats = true)
     {
-        if(!logger.IsEnabled(LogLevel.Debug))
+        if(!logger.IsEnabled(LogLevel.Trace))
         {
             return;
         }
 
 #pragma warning disable CA2254 // Template should be a static expression
-        logger.LogDebug(message);
+        logger.LogTrace(message);
 #pragma warning restore CA2254 // Template should be a static expression
 
         if (dumpStats)
         {
-            logger.LogDebug("ReadPos: {readPos} - WritePos: {writePos} - Available: {available}", readPos, writePos, available);
+            logger.LogTrace("ReadPos: {readPos} - WritePos: {writePos} - Available: {available}", readPos, writePos, available);
         }
     }
 
@@ -126,17 +126,17 @@ internal sealed class WyomingStreamReader : IDisposable
     {
         int filled = 0;
         int toFill = memory.Length;
-        Debug("[ReadExactlyAsync] Starting", false);
-        Debug("[ReadExactlyAsync] ToFill: " + toFill);
+        Trace("[ReadExactlyAsync] Starting", false);
+        Trace("[ReadExactlyAsync] ToFill: " + toFill);
 
         while (filled < toFill)
         {
             if (available == 0)
             {
-                Debug("[ReadExactlyAsync] Buffering", false);
+                Trace("[ReadExactlyAsync] Buffering", false);
                 await BufferContentAsync(cancellationToken);
 
-                Debug("[ReadExactlyAsync] Buffered");
+                Trace("[ReadExactlyAsync] Buffered");
             }
 
             if (available == EOF)
@@ -154,11 +154,11 @@ internal sealed class WyomingStreamReader : IDisposable
 
             filled += chunk;
 
-            Debug("[ReadExactlyAsync] Filled: " + filled, false);
-            Debug("[ReadExactlyAsync] ToFill: " + toFill);
+            Trace("[ReadExactlyAsync] Filled: " + filled, false);
+            Trace("[ReadExactlyAsync] ToFill: " + toFill);
         }
 
-        Debug("[ReadExactlyAsync] Done");
+        Trace("[ReadExactlyAsync] Done");
         return true;
     }
 
