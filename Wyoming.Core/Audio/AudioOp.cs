@@ -6,6 +6,8 @@ public static class AudioOp
 {
     private const float Pcm16Scale = 1f / 32768f;
 
+    private const float Pcm32Scale = 1f / 2147483648f;
+
     /// <summary>
     /// Convert float sampels to int16 sampels
     /// </summary>
@@ -55,6 +57,28 @@ public static class AudioOp
         Asserts.IsTrue(written == dst.Length, nameof(written));
 
         return dst;
+    }
+
+    public static int Pcm32ToFloat(ReadOnlySpan<byte> src, Span<float> dst)
+    {
+        if ((src.Length & 3) != 0)
+        {
+            throw new ArgumentException("Source length must be a multiple of 4 (PCM32)", nameof(src));
+        }
+
+        var samples = MemoryMarshal.Cast<byte, int>(src);
+
+        if (dst.Length < samples.Length)
+        {
+            throw new ArgumentException("Destination span too small", nameof(dst));
+        }
+
+        for (int i = 0; i < samples.Length; i++)
+        {
+            dst[i] = samples[i] * Pcm32Scale;
+        }
+
+        return samples.Length;
     }
 
     public static int Pcm16ToFloat(ReadOnlySpan<byte> src, Span<float> dst)
