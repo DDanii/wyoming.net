@@ -59,7 +59,7 @@ public sealed class WakeSettingsViewModel
         return model switch
         {
             "alexa" => "alexa_v0.1.tflite",
-            "hey_grace" => "hey_grace.tflite",
+            "hey_grace" => "hey_grace_v0.1.tflite",
             _ => throw new NotImplementedException(),
         };
     }

@@ -20,8 +20,14 @@ public sealed class MelspectrogramModel : TizenModel, IMelspectrogramModel
 
     public void GenerateSpectrogram(ReadOnlySpan<float> input, Span<float> destination)
     {
-        var bytes = MemoryMarshal.Cast<float, byte>(input);
-        bytes.CopyTo(_inputBuffer);
+        // The model expects int16-scale float values ([-32768, 32767]).
+        // Input arrives as normalized [-1, 1] floats, so scale up before inference.
+        var inputFloats = MemoryMarshal.Cast<byte, float>(_inputBuffer);
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            inputFloats[i] = input[i] * 32768f;
+        }
 
         _tensorData.SetTensorData(0, _inputBuffer);
 

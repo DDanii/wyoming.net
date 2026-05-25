@@ -50,7 +50,7 @@ public sealed class BackgroundApp : ServiceApplication
                 _settings.ControlPanel.RemoteLogIp,
                 _settings.ControlPanel.RemoteLogPort);
 
-            TizenLogger.Level = LogLevel.Debug;
+            TizenLogger.Level = LogLevel.Information;
 
             ManagePowerLock(true);
 
@@ -98,6 +98,8 @@ public sealed class BackgroundApp : ServiceApplication
     {
         try
         {
+            TizenLogger.Singleton.LogInformation("OnTerminate");
+
             _debugFileServer?.Dispose();
             _debugFileServer = null;
             DisposeMotionSensor();
@@ -175,17 +177,16 @@ public sealed class BackgroundApp : ServiceApplication
 
             if (isUnactive && _satellite != null && _satellite.IsRunning)
             {
-                TizenLogger.Singleton.LogInformation("Stopping satellite: inactive app '{AppId}' is in foreground", appId);
+                TizenLogger.Singleton.LogInformation("Stopping satellite: app '{AppId}' is in foreground", appId);
                 _stoppedByMonitor = true;
 
                 await _satellite.MuteAsync();
             }
             else if (!isUnactive && _stoppedByMonitor)
             {
-                TizenLogger.Singleton.LogInformation("Starting satellite: inactive app no longer in foreground (now '{AppId}')", appId);
+                TizenLogger.Singleton.LogInformation("Starting satellite: app no longer in foreground (now '{AppId}')", appId);
                 _stoppedByMonitor = false;
 
-                await StartSatellite();
                 await _satellite!.UnMuteAsync();
             }
         }
@@ -333,7 +334,6 @@ public sealed class BackgroundApp : ServiceApplication
             _stoppedByMotion = false;
             _foregroundAppMonitor?.Start(_settings.StateConfiguration.WatcherIntervalSeconds * 1000);
 
-            await StartSatellite();
             await _satellite!.UnMuteAsync();
         }
     }

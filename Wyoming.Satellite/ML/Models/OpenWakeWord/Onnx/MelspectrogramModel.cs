@@ -17,15 +17,16 @@ public sealed class MelspectrogramModel : BaseModel, IMelspectrogramModel
 
     public void GenerateSpectrogram(ReadOnlySpan<float> input, Span<float> destination)
     {
-        // Span<float> scaled = stackalloc float[input.Length];
-        // input.CopyTo(scaled);
-        //
-        // Scale(scaled);
-
+        // Android Encoding.PcmFloat delivers audio in [-1, 1].
+        // The melspectrogram ONNX model expects int16-scale float values ([-32768, 32767]).
+        // Scale up before inference so the mel bins land in the correct dynamic range.
         using var ortTensor = OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance, TensorElementType.Float, Shape);
 
         var tensorValue = ortTensor.GetTensorMutableDataAsSpan<float>();
-        input.CopyTo(tensorValue);
+        for (int i = 0; i < input.Length; i++)
+        {
+            tensorValue[i] = input[i] * 32768f;
+        }
 
         var modelInput = new ModelInput("input", ortTensor);
 
@@ -42,16 +43,6 @@ public sealed class MelspectrogramModel : BaseModel, IMelspectrogramModel
             outputBuffer[i] = outputBuffer[i] / 10.0f + 2.0f;
         }
     }
-
-    // private static void Scale(Span<float> input)
-    // {
-    //     const float scale = 1.0f / 32768.0f;
-    //
-    //     for (int i = 0; i < input.Length; i++)
-    //     {
-    //         input[i] *= scale;
-    //     }
-    // }
 }
 
 #endif

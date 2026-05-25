@@ -11,7 +11,7 @@ namespace Wyoming.Net.Satellite.App.Tz.Platform;
 
 internal sealed class TizenMicProvider : IMicInputProvider
 {
-    private readonly byte[] readBuffer = new byte[MicSettings.SamplesPerChunk * sizeof(int)];
+    private readonly byte[] readBuffer = new byte[MicSettings.SamplesPerChunk * sizeof(short)];
 
     private readonly Task<long?> cachedReadTask = Task.FromResult<long?>(null);
 
@@ -29,7 +29,7 @@ internal sealed class TizenMicProvider : IMicInputProvider
 
     public TizenMicProvider(ILogger logger)
     {
-        audioCapture = new AudioCapture(MicSettings.Rate, AudioChannel.Mono, AudioSampleType.S32Le);
+        audioCapture = new AudioCapture(MicSettings.Rate, AudioChannel.Mono, AudioSampleType.S16Le);
         audioCaptureHandle = (IntPtr)audioCapture.GetType()
                                                  .GetField("_handle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                                                  .GetValue(audioCapture)!;
@@ -73,7 +73,8 @@ internal sealed class TizenMicProvider : IMicInputProvider
 
         NativeAudio.Read(audioCaptureHandle, ref MemoryMarshal.GetReference(readBuffer.AsSpan()), readBuffer.Length).ThrowIfFailed("Failed to read audio");
 
-        AudioOp.Pcm32ToFloat(readBuffer, MemoryMarshal.Cast<byte, float>(buffer));
+        AudioOp.Pcm16ToFloat(readBuffer, MemoryMarshal.Cast<byte, float>(buffer));
+
         return cachedReadTask;
     }
 

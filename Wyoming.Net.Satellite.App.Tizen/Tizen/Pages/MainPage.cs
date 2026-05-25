@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using Tizen.Applications;
 using Tizen.NUI;
 using Tizen.NUI.BaseComponents;
@@ -35,14 +36,17 @@ public class MainPage : View
             RunUIUpdate(() => HandleServiceEvent(eventName, e.Message));
         };
 
-        parent.ChildAdded += (s, args) =>
+        parent.ChildAdded += async (s, args) =>
         {
             if (args.Added == this)
             {
-                if (ServiceManager.Singleton.IsCommunicating)
+                if (!ServiceManager.Singleton.IsCommunicating)
                 {
-                    ServiceManager.Singleton.SendGetStatus();
+                    await ServiceManager.Singleton.StartAsync();
                 }
+
+                await Task.Delay(TimeSpan.FromSeconds(1));
+                ServiceManager.Singleton.SendGetStatus();
             }
         };
     }

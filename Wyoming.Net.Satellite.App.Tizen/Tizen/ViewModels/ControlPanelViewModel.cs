@@ -6,7 +6,7 @@ public sealed class ControlPanelViewModel
 
     public int RemoteLogPort { get; set; } = 5005;
 
-    public bool DebugAudioEnabled { get; set; } = true;
+    public bool DebugAudioEnabled { get; set; } = false;
 
     public bool DebugFileServerEnabled { get; set; } = false;
 }

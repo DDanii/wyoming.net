@@ -217,7 +217,7 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
 
         if (SatelliteSettings.Wake.RefractorySeconds.HasValue)
         {
-            RefractoryTimestamp = Stopwatch.GetTimestamp() + SatelliteSettings.Wake.RefractorySeconds.Value;
+            RefractoryTimestamp = Stopwatch.GetTimestamp() + SatelliteSettings.Wake.RefractorySeconds.Value * Stopwatch.Frequency;
         }
         else
         {
@@ -226,6 +226,11 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
 
         Logger.LogInformation("Wake word detected");
 
+        if (WakeWordDetected is not null)
+        {
+            await WakeWordDetected();
+        }
+
         await WriteToServerAsync(new Detection()
         {
             Name = SatelliteSettings.Wake.Name
@@ -233,10 +238,5 @@ public sealed class WakeWordSatellite : SatelliteBase, IMicOutputHandler, IWakeW
 
         await SendRunPipelineAsync();
         IsStreaming = true;
-
-        if (WakeWordDetected is not null)
-        {
-            await WakeWordDetected();
-        }
     }
 }

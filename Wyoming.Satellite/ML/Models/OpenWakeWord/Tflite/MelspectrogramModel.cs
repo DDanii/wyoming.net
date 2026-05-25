@@ -39,7 +39,12 @@ public sealed class MelspectrogramModel : BaseModel, IMelspectrogramModel
 
     public void GenerateSpectrogram(ReadOnlySpan<float> input, Span<float> destination)
     {
-        input.CopyTo(inputStaging);
+        // Android Encoding.PcmFloat delivers audio in [-1, 1].
+        // The melspectrogram model expects int16-scale float values ([-32768, 32767]).
+        for (int i = 0; i < input.Length; i++)
+        {
+            inputStaging[i] = input[i] * 32768f;
+        }
         inputFloatBuffer.Rewind();
         inputFloatBuffer.Put(inputStaging);
 

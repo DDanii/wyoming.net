@@ -50,7 +50,6 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     private readonly Channel<AudioTask<float>> channel;
 
     private int silenceFrames = 0;
-    private int bufferWarmupFramesRemaining;
 
     public Action<float, ReadOnlyMemory<float>>? DebugPredictionCallback { get; set; }
 
@@ -67,7 +66,6 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         embeddingBuffer = new SlidingWindowPcmBuffer(embeddingBufferSize);
         melSpectogramBufferSize = models.EmbeddingModel.FlatShapeSize;
         melBuffer = new SlidingWindowPcmBuffer(melSpectogramBufferSize);
-        bufferWarmupFramesRemaining = wakeWordModel.FlatShapeSize / embeddingModel.FlattenedOutputSize; // 16
 
         this.predictionHandler = predictionHandler;
 
@@ -96,31 +94,7 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             throw new ArgumentException($"Samples must be of size {ExpectedSampleSize}");
         }
 
-        bool energySilence = SatelliteSettings.Vad.UseEnergyGate && IsSilence(samples);
-        bool vadSilence = webRtcVad is not null && !VadIsSpeech(samples);
-        bool isSilent = energySilence || vadSilence;
-
         rawAudioBuffer.Append(samples, SampleWindowSize);
-
-        if (bufferWarmupFramesRemaining > 0)
-        {
-            logger.LogDebug("bufferWarmupFramesRemaining: {bufferWarmupFramesRemaining}", bufferWarmupFramesRemaining);
-            bufferWarmupFramesRemaining--;
-            return;
-        }
-
-        if (isSilent)
-        {
-            if (++silenceFrames == Fps * 5) // 5 seconds
-            {
-                melBuffer.Clear();
-                embeddingBuffer.Clear();
-            }
-
-            return;
-        }
-
-        silenceFrames = 0;
         channel.Writer.TryWrite(new AudioTask<float>(rawAudioBuffer.Span));
     }
 
@@ -138,6 +112,14 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
             }
 
             using var chunk = await channel.Reader.ReadAsync(CancellationTokenSource!.Token);
+
+            // if(IsSilence(chunk.Buffer.Span))
+            // {
+            //     speechFrames = Math.Max(--speechFrames, 0);
+            //     patienceRemaining = Math.Max(--patienceRemaining, 0);
+            //     continue;
+            // }
+
             float prediction = Predict(chunk.Buffer.Span);
 
             logger.LogDebug("Prediction: {prediction}", prediction);
@@ -175,7 +157,6 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
     protected override ValueTask OnStopAsync()
     {
         silenceFrames = 0;
-        bufferWarmupFramesRemaining = wakeWordModel.FlatShapeSize / embeddingModel.FlattenedOutputSize;
         rawAudioBuffer.Clear();
         melBuffer.Clear();
         embeddingBuffer.Clear();
@@ -201,7 +182,28 @@ public sealed class OpenWakeWordService : TaskLoopRunner, IAsyncDisposable
         return prediction;
     }
 
-    private static bool IsSilence(ReadOnlySpan<float> samples)
+    private bool IsSilence(ReadOnlySpan<float> samples)
+    {
+        bool energySilence = SatelliteSettings.Vad.UseEnergyGate && IsBelowEnergyGate(samples);
+        bool vadSilence = webRtcVad is not null && !VadIsSpeech(samples);
+        bool isSilent = energySilence || vadSilence;
+
+        if (isSilent)
+        {
+            if (++silenceFrames == Fps * 5) // 5 seconds
+            {
+                melBuffer.Clear();
+                embeddingBuffer.Clear();
+            }
+
+            return true;
+        }
+
+        silenceFrames = 0;
+        return false;
+    }
+
+    private static bool IsBelowEnergyGate(ReadOnlySpan<float> samples)
     {
         float energy = 0f;
 
