@@ -21,7 +21,7 @@ jobs:
           dotnet-version: 9.x
           
       - name: Install MAUI Workload
-        run: dotnet workload install maui
+        run: dotnet workload install maui tizen
 
       - name: Set version variables
         run: |
