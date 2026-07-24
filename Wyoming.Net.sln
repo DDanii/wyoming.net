@@ -18,8 +18,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wyoming.Net.Tts", "Wyoming.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wyoming.Net.Tts.KokoroBackend", "Wyoming.Net.Tts.KokoroBackend\Wyoming.Net.Tts.KokoroBackend.csproj", "{E48DEFAC-A02A-4DD7-AEDB-9CC9551AA2B9}"
 EndProject
-Project("{6DEBFD27-93A2-46AE-AEE8-9ECDB3F64A13}") = "Wyoming.Net.Satellite.App.Tizen", "Wyoming.Net.Satellite.App.Tizen\Tizen\Wyoming.Net.Satellite.App.Tizen.csproj", "{601E3BBC-4D21-45B0-8BB2-9D023BD47271}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wyoming.Net.Tts.OpenAIBackend", "Wyoming.Net.Tts.OpenAIBackend\Wyoming.Net.Tts.OpenAIBackend.csproj", "{6F274861-A5C1-40E1-A90C-30C153B31285}"
 EndProject
 Global
