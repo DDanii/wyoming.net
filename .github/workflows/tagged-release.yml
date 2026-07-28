@@ -34,11 +34,11 @@ jobs:
         run: dotnet restore "$env:PROJECT_PATH"
 
       - name: Execute dotnet
-        run: dotnet build "$env:PROJECT_PATH" -f net9.0-android -v diag
+        run: dotnet build "$env:PROJECT_PATH" -f net9.0-android -v d
         
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           automatic_release_tag: "latest"
-          files: "*.apk"
+          files: D:\a\wyoming.net\wyoming.net\Wyoming.Net.Satellite.App.Maui\obj\Debug\net9.0-android\android\bin\Wyoming.Net.Satellite.App.Maui.apk
