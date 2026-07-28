@@ -47,7 +47,6 @@ nuget.exe
 *.ap_
 *.aab
 *.aapt2
-*.keystore
 *.jks
 android.keystore
 **/Resources/layout/*.axml.cs
@@ -56,8 +55,7 @@ android.keystore
 **/Platforms/Android/*.apk
 **/Platforms/Android/*.aab
 **/Platforms/Android/**/*cache*/ 
-*.keystore
-.keystore
+
 
 # iOS
 *.app
