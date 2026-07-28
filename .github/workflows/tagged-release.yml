@@ -34,21 +34,11 @@ jobs:
         run: dotnet restore "$env:PROJECT_PATH"
 
       - name: Execute dotnet
-        run: dotnet build "$env:PROJECT_PATH" -f net9.0-android
-
-      - name: Copy .apk to output
-        run: |
-          $destination = "$(pwd)\output"
-          mkdir $destination
-          $files = Get-ChildItem -Recurse -Include *.apk
-          foreach ($file in $files) {
-            Copy-Item $file.FullName -Destination $destination -Force
-          }
+        run: dotnet build "$env:PROJECT_PATH" -f net9.0-android -v diag
         
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           automatic_release_tag: "latest"
-          files: |
-            output\*.apk
+          files: *.apk
