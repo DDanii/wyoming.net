@@ -33,12 +33,28 @@ jobs:
       - name: Restore NuGet packages
         run: dotnet restore "$env:PROJECT_PATH"
 
-      - name: Execute dotnet
-        run: dotnet build "$env:PROJECT_PATH" -f net9.0-android -v d
+      - name: Build Android app
+        run: dotnet build "$env:PROJECT_PATH" -f net9.0-android -c Release -p:AndroidPackageFormat=apk -v d
+
+      - name: Find built APK
+        shell: pwsh
+        run: |
+          $apk = Get-ChildItem -Path . -Recurse -File -Filter *.apk |
+            Where-Object { $_.FullName -match 'Wyoming\.Net\.Satellite\.App\.Maui.*\.apk$' } |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $apk) {
+            Write-Host "No APK found under repository tree."
+            Get-ChildItem -Path . -Recurse -File -Filter *.apk | ForEach-Object { Write-Host $_.FullName }
+            throw "No APK found."
+          }
+
+          Write-Host "APK_PATH=$apk"
+          "APK_PATH=$apk" | Out-File -FilePath $env:GITHUB_ENV -Append
         
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           automatic_release_tag: "latest"
-          files: D:\a\wyoming.net\wyoming.net\Wyoming.Net.Satellite.App.Maui\obj\Debug\net9.0-android\android\bin\Wyoming.Net.Satellite.App.Maui.apk
+          files: ${{ env.APK_PATH }}
