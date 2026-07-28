@@ -34,7 +34,7 @@ jobs:
         run: dotnet restore "$env:PROJECT_PATH"
 
       - name: Execute dotnet
-        run: dotnet build "$env:PROJECT_PATH" -f net9.0-android
+        run: dotnet publis "$env:PROJECT_PATH" -f net9.0-android -p:AndroidPackageFormat=apk
 
       - name: debug
         run: tree /F
