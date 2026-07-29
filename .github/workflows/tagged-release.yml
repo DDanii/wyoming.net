@@ -47,15 +47,9 @@ jobs:
 
       - name: debug
         run: tree /F
-      
-      - name: debug2
-        run: (Get-Item .).FullName  
-
-      - name: debug3
-        run: (Get-Item .).parent.FullName
 
       - name: debug4
-        run: tree ((Get-Item .).parent.FullName)
+        run: tree ((Get-Item .).parent.FullName) \F
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
