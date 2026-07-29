@@ -38,19 +38,23 @@ jobs:
           dotnet publish "$env:PROJECT_PATH" -f net9.0-android -c Release `
             -p:ApplicationVersion="0.1" `
             -p:ApplicationDisplayVersion="0.1" `
-            -p:AndroidSigningKeyAlias=myapp `
+            -p:AndroidSigningKeyAlias="myapp" `
             -p:AndroidSigningKeyPass="${{ secrets.password }}" `
             -p:AndroidSigningStorePass="${{ secrets.password }}" `
-            -p:AndroidSigningStore=myapp.keystore
+            -p:AndroidSigningStore="myapp.keystore" `
+            -p:AndroidPackageFormat="apk"
 
       - name: debug
         run: tree /F
       
       - name: debug2
-        run: (Get-ScriptDirectory)  
+        run: Get-ScriptDirectory  
 
       - name: debug3
-        run: (Get-ScriptDirectory).parent
+        run: (Get-ScriptDirectory).parent.FullName
+
+      - name: debug4
+        run: tree (Get-ScriptDirectory).parent.FullName \F
         
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
