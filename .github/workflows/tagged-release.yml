@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: windows-latest
     env:
-      PROJECT_PATH: Wyoming.Net.Satellite.App.Maui/Wyoming.Net.Satellite.App.Maui.csproj
+      PROJECT_PATH: Wyoming.Net.sln
       MauiVersion: 9.0.120
 
     steps:
@@ -35,7 +35,7 @@ jobs:
 
       - name: Build (Release)
         run: |
-          dotnet publish "Wyoming.Net.sln" -f net9.0-android -c Release `
+          dotnet publish "$env:PROJECT_PATH" -f net9.0-android -c Release `
             -p:ApplicationVersion="0.1" `
             -p:ApplicationDisplayVersion="0.1" `
             -p:AndroidSigningKeyAlias="myapp" `
