@@ -35,7 +35,7 @@ jobs:
 
       - name: Build (Release)
         run: |
-          dotnet publish "$env:PROJECT_PATH" -f net9.0-android -c Release `
+          dotnet publish "Wyoming.Net.sln" -f net9.0-android -c Release `
             -p:ApplicationVersion="0.1" `
             -p:ApplicationDisplayVersion="0.1" `
             -p:AndroidSigningKeyAlias="myapp" `
@@ -54,17 +54,7 @@ jobs:
         run: (Get-Item .).parent.FullName
 
       - name: debug4
-        run: tree ((Get-Item .).parent.FullName) \F
-
-      - name: build2
-        shell: pwsh
-        run: dotnet build Wyoming.Net.Satellite.App.Maui/Wyoming.Net.Satellite.App.Maui.csproj -f net9.0-android -c Debug
-        
-      - name: debug21
-        run: tree /F
-
-      - name: debug24
-        run: tree ((Get-Item .).parent.FullName) \F
+        run: tree ((Get-Item .).parent.FullName)
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
