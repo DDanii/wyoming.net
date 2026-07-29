@@ -54,14 +54,17 @@ jobs:
         run: (Get-Item .).parent.FullName
 
       - name: debug4
-        run: tree (Get-Item .).parent.FullName \F
+        run: tree ((Get-Item .).parent.FullName) \F
 
       - name: build2
         shell: pwsh
-        run: dotnet build Wyoming.Net.Satellite.App.Maui/Wyoming.Net.Satellite.App.Maui -f net9.0-android -c Debug
+        run: dotnet build Wyoming.Net.Satellite.App.Maui/Wyoming.Net.Satellite.App.Maui.csproj -f net9.0-android -c Debug
         
+      - name: debug21
+        run: tree /F
+
       - name: debug24
-        run: tree (Get-Item .).parent.FullName \F
+        run: tree ((Get-Item .).parent.FullName) \F
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
