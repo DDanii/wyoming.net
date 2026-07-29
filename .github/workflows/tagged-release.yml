@@ -47,7 +47,10 @@ jobs:
         run: tree /F
       
       - name: debug2
-        run: (Get-Item .).FullName
+        run: (Get-ScriptDirectory)  
+
+      - name: debug3
+        run: (Get-ScriptDirectory).parent
         
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
