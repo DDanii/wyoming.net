@@ -32,17 +32,18 @@ jobs:
       - name: Restore NuGet packages
         run: dotnet restore "$env:PROJECT_PATH"
 
-      - name: Build (Release)
+      - name: Publish Android APK
+        shell: pwsh
         run: |
-          dotnet build "$env:PROJECT_PATH" -f net9.0-android -c Release `
+          dotnet publish "$env:PROJECT_PATH" -f net9.0-android -c Release `
+            -p:AndroidPackageFormat=apk `
+            -p:AndroidBuildApplicationPackage=true `
             -p:ApplicationVersion="0.1" `
             -p:ApplicationDisplayVersion="0.1" `
             -p:AndroidSigningKeyAlias="myapp" `
             -p:AndroidSigningKeyPass="${{ secrets.password }}" `
             -p:AndroidSigningStorePass="${{ secrets.password }}" `
-            -p:AndroidSigningStore="myapp.keystore" `
-            -p:AndroidBuildApplicationPackage=true `
-            -p:AndroidPackageFormat="apk"
+            -p:AndroidSigningStore="myapp.keystore"
 
       - name: debug
         run: tree /F
@@ -50,9 +51,20 @@ jobs:
       - name: debug4
         run: tree ((Get-Item .).parent.FullName) /F
 
+      - name: Find APK
+        shell: pwsh
+        run: |
+          $apk = Get-ChildItem -Path . -Recurse -File -Filter *.apk | Select-Object -First 1 -ExpandProperty FullName
+          if ($apk) {
+            Write-Host "APK=$apk"
+          } else {
+            Write-Host "No APK found"
+            Get-ChildItem -Path . -Recurse -File -Filter *.apk | ForEach-Object { Write-Host $_.FullName }
+          }
+
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           automatic_release_tag: "latest"
-          files: "**.apk"
+          files: "**/*.apk"
