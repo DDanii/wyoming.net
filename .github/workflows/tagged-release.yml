@@ -1,13 +1,12 @@
-name: "tagged-release"
+name: "on push release"
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [ main ]
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     env:
       PROJECT_PATH: Wyoming.Net.Satellite.App.Maui/Wyoming.Net.Satellite.App.Maui.csproj
       MauiVersion: 9.0.120
@@ -35,21 +34,18 @@ jobs:
 
       - name: Build (Release)
         run: |
-          dotnet build "$env:PROJECT_PATH" -f net9.0-android -c Release `
-            -p:ApplicationVersion="0.1" `
-            -p:ApplicationDisplayVersion="0.1" `
-            -p:AndroidSigningKeyAlias="myapp" `
-            -p:AndroidSigningKeyPass="${{ secrets.password }}" `
-            -p:AndroidSigningStorePass="${{ secrets.password }}" `
-            -p:AndroidSigningStore="myapp.keystore" `
-            -p:AndroidBuildApplicationPackage=true `
+          dotnet build "$env:PROJECT_PATH" -f net9.0-android -c Release \
+            -p:ApplicationVersion="0.1" \
+            -p:ApplicationDisplayVersion="0.1" \
+            -p:AndroidSigningKeyAlias="myapp" \
+            -p:AndroidSigningKeyPass="${{ secrets.password }}" \
+            -p:AndroidSigningStorePass="${{ secrets.password }}" \
+            -p:AndroidSigningStore="myapp.keystore" \
+            -p:AndroidBuildApplicationPackage=true \
             -p:AndroidPackageFormat="apk"
 
       - name: debug
-        run: tree /F
-
-      - name: debug4
-        run: tree ((Get-Item .).parent.FullName) \F
+        run: find ..
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
