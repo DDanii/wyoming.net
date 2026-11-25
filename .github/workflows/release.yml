@@ -44,6 +44,11 @@ env:
   # Folder of the Android app project. Leave empty to auto-detect it (the .csproj that targets Android
   # and has OutputType Exe). Set it, e.g. to Wyoming.Net.Satellite.App.Droid, to force a specific project.
   PROJECT_DIR: ''
+  # Optional: override the app's minimum Android API level (e.g. 26 = Android 8.0) through
+  # SupportedOSPlatformVersion. Leave empty to use what the project sets. Lowering it can make the app
+  # crash on devices that lack APIs it uses, so test on the device. The "Show APK info" step prints the
+  # value that ended up in the APK.
+  MIN_SDK: ''
   DOTNET_NOLOGO: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
 
@@ -204,6 +209,13 @@ jobs:
             -p:InstallAndroidDependencies=true
             -p:AcceptAndroidSDKLicenses=true
           )
+          if [ -n "$MIN_SDK" ]; then
+            if ! [[ "$MIN_SDK" =~ ^[0-9]+$ ]]; then
+              echo "::error::MIN_SDK must be a number such as 26, got '$MIN_SDK'"
+              exit 1
+            fi
+            ARGS+=(-p:SupportedOSPlatformVersion="$MIN_SDK")
+          fi
           if [ "$SIGNING_ENABLED" = "true" ]; then
             ARGS+=(
               -p:AndroidKeyStore=true
@@ -239,6 +251,26 @@ jobs:
           cp "$APK" "dist/Wyoming.Net-${VERSION}-android.apk"
           (cd dist && sha256sum ./*.apk > SHA256SUMS.txt)
           ls -lh dist
+
+      - name: Show APK info
+        # Never fails the build. Shows the package id, version and the minimum/target Android API level
+        # inside the APK, to compare with the device (adb shell getprop ro.build.version.sdk).
+        run: |
+          set -uo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          AAPT2=$(find "$SDK_ROOT/build-tools" -name aapt2 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -z "$AAPT2" ]; then
+            echo "::warning::aapt2 not found under $SDK_ROOT/build-tools, skipping APK info."
+            exit 0
+          fi
+          INFO=$("$AAPT2" dump badging dist/*.apk | grep -E "^(package:|sdkVersion:|targetSdkVersion:)" || true)
+          echo "$INFO"
+          {
+            echo '### APK info'
+            echo '```'
+            echo "$INFO"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
